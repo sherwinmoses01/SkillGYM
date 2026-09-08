@@ -1,5 +1,6 @@
 import { gameState, saveState } from './data.js';
 import { sounds } from './audio.js';
+import { generateRoomId } from './db.js';
 
 let modalContainer = null;
 let currentOpenModal = null;
@@ -105,17 +106,19 @@ export function openRankedModal() {
       setTimeout(() => {
         if (currentOpenModal === 'ranked') {
           sounds.playReward();
+          const roomId = generateRoomId('ranked');
           statusBox.innerHTML = `
             <div class="match-found-banner">
               <span class="banner-alert">⚔️ MATCH PAIRING CONFIRMED!</span>
               <h4>Opponent: <strong>ZeroDayNinja (2,890 ELO • RED FACTION)</strong></h4>
+              <p>Room ID: <strong style="color: #38BDF8">${roomId}</strong> (Real-Time Synced)</p>
               <p>Mission: <strong>Territory Map Conquest (White Outline Grid)</strong></p>
               <div class="ready-timer">Deploying to Tactical Map Arena in 3... 2... 1...</div>
             </div>
           `;
           setTimeout(() => {
             closeModal();
-            window.location.href = '/ranked.html';
+            window.location.href = `/ranked.html?room=${encodeURIComponent(roomId)}`;
           }, 2000);
         }
       }, 2200);

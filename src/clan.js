@@ -1,6 +1,7 @@
 // Clan Headquarters Controller for SkillGYM (clan.html)
 import { gameState, saveState } from './data.js';
 import { sounds, spawnCrosshair } from './audio.js';
+import { generateRoomId } from './db.js';
 
 // DOM Elements
 const modalContainer = document.getElementById('modal-container');
@@ -298,7 +299,10 @@ function openClanWarModal() {
   // Case 1: War is already active -> Direct all members directly to the 50-territory war map!
   if (clanWar.isActive) {
     sounds.playReward();
-    window.location.href = '/war.html';
+    const warRoom = clanWar.roomId || generateRoomId('guild');
+    clanWar.roomId = warRoom;
+    saveState();
+    window.location.href = `/war.html?room=${encodeURIComponent(warRoom)}`;
     return;
   }
 
@@ -499,11 +503,13 @@ function openClanWarModal() {
         gameState.clanWar.isActive = true;
         gameState.clanWar.startTime = Date.now();
         gameState.clanWar.playerAttemptsRemaining = 5;
+        const warRoom = generateRoomId('guild');
+        gameState.clanWar.roomId = warRoom;
         saveState();
 
         setTimeout(() => {
           closeModal();
-          window.location.href = '/war.html';
+          window.location.href = `/war.html?room=${encodeURIComponent(warRoom)}`;
         }, 2000);
       }, 2000);
     });

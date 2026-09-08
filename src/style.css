@@ -6953,3 +6953,195 @@ body.learn-roadmap-page::-webkit-scrollbar-thumb:hover {
   }
 }
 
+/* ==========================================================================
+   REAL-TIME DATABASE ROOM HUD & STATE INTERPOLATION STYLES
+   ========================================================================== */
+.room-telemetry-item {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.room-id-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  border-radius: 20px;
+  padding: 4px 12px;
+  color: #F8FAFC;
+  font-family: var(--font-tech);
+  font-size: 0.78rem;
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.15);
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.room-id-pill:hover {
+  background: rgba(30, 41, 59, 0.95);
+  border-color: #38BDF8;
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.35);
+  transform: translateY(-1px);
+}
+
+.room-id-pill:active {
+  transform: scale(0.96);
+}
+
+.war-room-pill {
+  border-color: rgba(168, 85, 247, 0.4);
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.15);
+}
+
+.war-room-pill:hover {
+  border-color: #A855F7;
+  box-shadow: 0 0 14px rgba(168, 85, 247, 0.35);
+}
+
+.room-lbl {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #38BDF8;
+  background: rgba(56, 189, 248, 0.12);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.war-room-pill .room-lbl {
+  color: #C084FC;
+  background: rgba(192, 132, 252, 0.12);
+}
+
+.room-code {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  color: #FFFFFF;
+  letter-spacing: 0.05em;
+}
+
+.room-copy-ico {
+  font-size: 0.82rem;
+  opacity: 0.75;
+  transition: opacity 0.2s ease;
+}
+
+.room-id-pill:hover .room-copy-ico {
+  opacity: 1;
+}
+
+/* Network Sync & Latency Status Badges */
+.net-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-family: var(--font-tech);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  user-select: none;
+  transition: all 0.3s ease;
+}
+
+.net-pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  animation: netDotPulse 1.5s infinite;
+}
+
+@keyframes netDotPulse {
+  0% { transform: scale(0.9); opacity: 0.6; }
+  50% { transform: scale(1.3); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.6; }
+}
+
+.net-badge-good {
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  color: #4ADE80;
+}
+.net-badge-good .net-pulse-dot {
+  background: #22C55E;
+  box-shadow: 0 0 8px #22C55E;
+}
+
+.net-badge-med {
+  background: rgba(234, 179, 8, 0.12);
+  border: 1px solid rgba(234, 179, 8, 0.4);
+  color: #FACC15;
+}
+.net-badge-med .net-pulse-dot {
+  background: #EAB308;
+  box-shadow: 0 0 8px #EAB308;
+}
+
+.net-badge-high {
+  background: rgba(249, 115, 22, 0.12);
+  border: 1px solid rgba(249, 115, 22, 0.4);
+  color: #FB923C;
+}
+.net-badge-high .net-pulse-dot {
+  background: #F97316;
+  box-shadow: 0 0 8px #F97316;
+}
+
+.net-badge-local {
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: #38BDF8;
+}
+.net-badge-local .net-pulse-dot {
+  background: #38BDF8;
+  box-shadow: 0 0 8px #38BDF8;
+}
+
+.net-badge-offline {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #F87171;
+}
+.net-badge-offline .net-pulse-dot {
+  background: #EF4444;
+  box-shadow: 0 0 8px #EF4444;
+}
+
+/* State Interpolation: Smooth Conquest Ripple Effects */
+.interpolating-blue {
+  animation: conquestPulseBlue 1.2s ease-out;
+}
+
+@keyframes conquestPulseBlue {
+  0% {
+    filter: drop-shadow(0 0 25px rgba(56, 189, 248, 1)) brightness(1.6);
+    fill: #38BDF8 !important;
+  }
+  50% {
+    filter: drop-shadow(0 0 15px rgba(56, 189, 248, 0.8)) brightness(1.3);
+  }
+  100% {
+    filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.4)) brightness(1.0);
+  }
+}
+
+.interpolating-red {
+  animation: conquestPulseRed 1.2s ease-out;
+}
+
+@keyframes conquestPulseRed {
+  0% {
+    filter: drop-shadow(0 0 25px rgba(239, 68, 68, 1)) brightness(1.6);
+    fill: #EF4444 !important;
+  }
+  50% {
+    filter: drop-shadow(0 0 15px rgba(239, 68, 68, 0.8)) brightness(1.3);
+  }
+  100% {
+    filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.4)) brightness(1.0);
+  }
+}

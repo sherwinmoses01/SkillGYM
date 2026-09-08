@@ -5,6 +5,20 @@
 
 import { gameState, saveState, resetClanWar } from './data.js';
 import { sounds, spawnCrosshair } from './audio.js';
+import {
+  initClanWarRoom,
+  subscribeToGameRoom,
+  writeTerritoryConquest,
+  getRoomIdFromUrl,
+  generateRoomId,
+  copyRoomLink,
+  getLatencyVisualStatus,
+  applyStateInterpolation
+} from './db.js';
+
+// Active Clan War Room & Realtime State
+let currentWarRoomId = null;
+let unsubscribeWarRoom = null;
 
 // ==================== 50-TERRITORY CONTINENT GENERATION ====================
 const SECTOR_NAMES = [
@@ -377,7 +391,7 @@ const btnToggleSfx = document.getElementById('btn-toggle-sound');
 const crosshairContainer = document.getElementById('crosshair-container');
 
 // ==================== INITIALIZATION ====================
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   initWarState();
   renderWarMap();
   updateScores();
@@ -393,16 +407,107 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Modal actions
-  if (btnCloseChal) btnCloseChal.addEventListener('click', closeChallengeModal);
-  if (btnRunTests) btnRunTests.addEventListener('click', runCurrentTests);
-  if (btnSubmit) btnSubmit.addEventListener('click', submitCurrentSolution);
-  if (btnQuickSolve) btnQuickSolve.addEventListener('click', autoSolveCode);
+  // --- CLAN WAR ROOM & REALTIME DATABASE INITIALIZATION ---
+  currentWarRoomId = getRoomIdFromUrl() || (gameState.clanWar && gameState.clanWar.roomId) || generateRoomId('guild');
+  if (gameState.clanWar) {
+    gameState.clanWar.roomId = currentWarRoomId;
+    saveState();
+  }
+
+  // Update browser URL query parameter seamlessly
+  const currentUrl = new URL(window.location.href);
+  if (currentUrl.searchParams.get('room') !== currentWarRoomId) {
+    currentUrl.searchParams.set('room', currentWarRoomId);
+    window.history.replaceState({}, '', currentUrl.toString());
+  }
+
+  // Bind Clan War Room HUD Pill
+  const warRoomPill = document.getElementById('war-room-id-pill');
+  const warRoomCodeText = document.getElementById('war-room-code-text');
+  if (warRoomCodeText) {
+    warRoomCodeText.textContent = currentWarRoomId;
+  }
+  if (warRoomPill) {
+    warRoomPill.addEventListener('click', async () => {
+      sounds.playClick();
+      const ok = await copyRoomLink(currentWarRoomId);
+      if (ok) {
+        showToast(`Clan War Room Link Copied! (${currentWarRoomId})`, '📋');
+      }
+    });
+  }
+
+  // Initialize Clan War Room in Database
+  const clanInfo = {
+    homeClan: gameState.clanWar?.homeClan || { name: 'BitKnights' },
+    rivalClan: gameState.clanWar?.rivalClan || { name: 'CyberDragons' }
+  };
+  await initClanWarRoom(currentWarRoomId, clanInfo, warTerritories);
+
+  // Subscribe to Realtime Updates (Zero-Lag via requestAnimationFrame)
+  unsubscribeWarRoom = subscribeToGameRoom({
+    roomId: currentWarRoomId,
+    table: 'clan_war_rooms',
+    onStateUpdate: (roomData, isRemote) => {
+      if (!roomData || !Array.isArray(roomData.territories)) return;
+      let stateChanged = false;
+
+      roomData.territories.forEach(remoteT => {
+        const localT = warTerritories.find(t => t.id === remoteT.id);
+        if (localT && localT.owner !== remoteT.owner) {
+          localT.owner = remoteT.owner;
+          stateChanged = true;
+
+          // State Interpolation: smooth visual transition on changed sector
+          if (isRemote) {
+            const poly = document.getElementById(`war-poly-${localT.id}`);
+            if (poly) applyStateInterpolation(poly, localT.owner);
+
+            if (localT.owner === 'enemy') {
+              sounds.playClick();
+              showToast(`RIVAL ADVANCE: CyberDragons conquered ${localT.name}!`, '⚠️', true);
+            } else if (localT.owner === 'user') {
+              sounds.playReward();
+              showToast(`SQUAD CONQUEST: Clan conquered ${localT.name}!`, '🎉');
+            }
+          }
+        }
+      });
+
+      if (stateChanged) {
+        gameState.clanWar.territories = warTerritories;
+        saveState();
+        renderWarMap();
+        updateScores();
+        checkWarVictoryCondition();
+      }
+    },
+    onLatencyChange: (rttMs) => {
+      const badge = document.getElementById('war-net-latency-badge');
+      const text = document.getElementById('war-net-latency-text');
+      if (badge && text) {
+        const visual = getLatencyVisualStatus(rttMs);
+        badge.className = `net-status-badge ${visual.badgeClass}`;
+        text.textContent = visual.pingText;
+      }
+    }
+  });
 
   // Navigation
-  if (btnWarBackClan) btnWarBackClan.addEventListener('click', () => window.location.href = '/clan.html');
-  if (btnReturnClanHq) btnReturnClanHq.addEventListener('click', () => window.location.href = '/clan.html');
+  if (btnWarBackClan) btnWarBackClan.addEventListener('click', () => {
+    if (unsubscribeWarRoom) unsubscribeWarRoom();
+    window.location.href = '/clan.html';
+  });
+  if (btnReturnClanHq) btnReturnClanHq.addEventListener('click', () => {
+    if (unsubscribeWarRoom) unsubscribeWarRoom();
+    window.location.href = '/clan.html';
+  });
   if (btnResetWar) btnResetWar.addEventListener('click', concedeWar);
+
+  // Clean up subscription on window unload
+  window.addEventListener('beforeunload', () => {
+    if (unsubscribeWarRoom) unsubscribeWarRoom();
+  });
 
   // Audio toggles
   if (btnToggleBgm) {
@@ -942,6 +1047,27 @@ function submitCurrentSolution() {
   closeChallengeModal();
   renderWarMap();
   updateScores();
+
+  // Optimistic Write-Back to Supabase Database
+  if (currentWarRoomId) {
+    const blueCount = warTerritories.filter(t => t.owner === 'user').length;
+    const redCount = warTerritories.filter(t => t.owner === 'enemy').length;
+    writeTerritoryConquest({
+      roomId: currentWarRoomId,
+      table: 'clan_war_rooms',
+      sectorId: sector.id,
+      newOwner: 'user',
+      playerInfo: {
+        id: gameState.player?.name || 'Member',
+        name: gameState.player?.name || 'BitKnights_Hero'
+      },
+      fullTerritories: warTerritories,
+      blueScore: blueCount,
+      redScore: redCount,
+      memberAttemptsRemaining: gameState.clanWar.playerAttemptsRemaining
+    });
+  }
+
   checkWarVictoryCondition();
 }
 
@@ -999,6 +1125,23 @@ function startEnemyAI() {
 
       renderWarMap();
       updateScores();
+
+      // Write-back enemy conquest to database
+      if (currentWarRoomId) {
+        const blueCount = warTerritories.filter(t => t.owner === 'user').length;
+        const redCount = warTerritories.filter(t => t.owner === 'enemy').length;
+        writeTerritoryConquest({
+          roomId: currentWarRoomId,
+          table: 'clan_war_rooms',
+          sectorId: target.id,
+          newOwner: 'enemy',
+          playerInfo: { id: 'rival_ai', name: 'CyberDragons' },
+          fullTerritories: warTerritories,
+          blueScore: blueCount,
+          redScore: redCount
+        });
+      }
+
       checkWarVictoryCondition();
     }
   }, 45000);

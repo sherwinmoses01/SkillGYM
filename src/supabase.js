@@ -1,0 +1,112 @@
+// ==============================================================================
+// SkillGYM - Supabase Database Initialization & Client Setup
+// ==============================================================================
+// This module initializes the singleton Supabase client using environment
+// variables loaded via Vite (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY).
+//
+// Features:
+// 1. Clean, documented client initialization with optimized Realtime WebSocket settings.
+// 2. Automated configuration detection (verifies if credentials are valid or placeholder).
+// 3. Built-in latency probe and health-check diagnostics.
+// 4. Safe offline fallback handling to prevent game crashes when credentials are unset.
+// ==============================================================================
+
+import { createClient } from '@supabase/supabase-js';
+
+// Retrieve credentials from environment (Vite exposes variables prefixed with VITE_)
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+
+/**
+ * Checks whether valid Supabase credentials have been configured in the .env file.
+ * Returns false if still using default placeholders or empty strings.
+ * 
+ * @returns {boolean} True if credentials appear valid and ready for live cloud connection.
+ */
+export function isSupabaseConfigured() {
+  if (!supabaseUrl || !supabaseAnonKey) return false;
+  if (supabaseUrl.includes('your-project-id') || supabaseAnonKey.includes('your-supabase-anon-key')) {
+    return false;
+  }
+  try {
+    const parsed = new URL(supabaseUrl);
+    return parsed.protocol === 'https:' && parsed.hostname.endsWith('.supabase.co');
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Supabase Client Instance Options:
+ * - auth.persistSession: false (Client is used primarily for anonymous game rooms and realtime sync).
+ * - auth.autoRefreshToken: false (No user auth refresh loop overhead).
+ * - realtime.params.eventsPerSecond: 20 (Allows smooth, high-frequency game room updates).
+ */
+const clientOptions = {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+    detectSessionInUrl: false
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 25 // Optimized rate for tactical conquest updates
+    }
+  }
+};
+
+/**
+ * The singleton Supabase client instance.
+ * If credentials are missing, initializes with dummy values to allow module loading without crashing,
+ * while downstream database handlers safely switch to local fallback mode.
+ */
+export const supabase = createClient(
+  isSupabaseConfigured() ? supabaseUrl : 'https://placeholder.supabase.co',
+  isSupabaseConfigured() ? supabaseAnonKey : 'placeholder-anon-key',
+  clientOptions
+);
+
+/**
+ * Performs a lightweight health check against the Supabase database.
+ * Measures round-trip ping time and confirms connectivity to public tables.
+ * 
+ * @returns {Promise<{ ok: boolean, latencyMs: number, error?: string }>}
+ */
+export async function checkSupabaseHealth() {
+  if (!isSupabaseConfigured()) {
+    return {
+      ok: false,
+      latencyMs: 0,
+      error: 'Supabase credentials not configured in .env (Running in Local Fallback Mode)'
+    };
+  }
+
+  const startTime = performance.now();
+  try {
+    // Perform a lightweight limit-1 probe on ranked_rooms
+    const { error } = await supabase
+      .from('ranked_rooms')
+      .select('room_id')
+      .limit(1);
+
+    const latencyMs = Math.round(performance.now() - startTime);
+
+    if (error) {
+      return { ok: false, latencyMs, error: error.message };
+    }
+
+    return { ok: true, latencyMs };
+  } catch (err) {
+    const latencyMs = Math.round(performance.now() - startTime);
+    return { ok: false, latencyMs, error: err.message || 'Network connection failed' };
+  }
+}
+
+// Log status on development initialization
+if (import.meta.env.DEV) {
+  if (isSupabaseConfigured()) {
+    console.log(`[SkillGYM DB] Supabase initialized for endpoint: ${supabaseUrl}`);
+  } else {
+    console.info('[SkillGYM DB] Supabase credentials not set in .env -> Using Local Cross-Tab Simulator Mode.');
+  }
+}

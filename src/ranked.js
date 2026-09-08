@@ -1,6 +1,20 @@
 // Ranked Territory Conquest Controller for SkillGYM (ranked.html)
 import { gameState, saveState } from './data.js';
 import { sounds, spawnCrosshair } from './audio.js';
+import {
+  initRankedRoom,
+  subscribeToGameRoom,
+  writeTerritoryConquest,
+  getRoomIdFromUrl,
+  generateRoomId,
+  copyRoomLink,
+  getLatencyVisualStatus,
+  applyStateInterpolation
+} from './db.js';
+
+// Active Room & Realtime State
+let currentRoomId = null;
+let unsubscribeRoom = null;
 
 // ==================== TERRITORIES DEFINITION ====================
 // 10 state-like polygonal territories fitting together seamlessly
@@ -397,7 +411,7 @@ const btnToggleSfx = document.getElementById('btn-toggle-sound');
 const crosshairContainer = document.getElementById('crosshair-container');
 
 // ==================== INITIALIZATION ====================
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   renderMap();
   updateScores();
   startTimer();
@@ -411,6 +425,86 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // --- ROOM & REALTIME DATABASE INITIALIZATION ---
+  currentRoomId = getRoomIdFromUrl() || generateRoomId('ranked');
+  // Reflect room ID in browser address bar without reload
+  const currentUrl = new URL(window.location.href);
+  if (currentUrl.searchParams.get('room') !== currentRoomId) {
+    currentUrl.searchParams.set('room', currentRoomId);
+    window.history.replaceState({}, '', currentUrl.toString());
+  }
+
+  // Bind Room ID Pill in HUD
+  const roomPill = document.getElementById('room-id-pill');
+  const roomCodeText = document.getElementById('room-code-text');
+  if (roomCodeText) {
+    roomCodeText.textContent = currentRoomId;
+  }
+  if (roomPill) {
+    roomPill.addEventListener('click', async () => {
+      sounds.playClick();
+      const ok = await copyRoomLink(currentRoomId);
+      if (ok) {
+        showToast(`Invite link copied to clipboard! (${currentRoomId})`, '📋');
+      }
+    });
+  }
+
+  // Initialize room record in database
+  const hostInfo = {
+    id: gameState.player?.name || 'Player_1',
+    name: gameState.player?.name || 'NeoCoder_42',
+    elo: 2840
+  };
+  await initRankedRoom(currentRoomId, hostInfo, territories);
+
+  // Subscribe to Realtime Updates (Zero-Lag via requestAnimationFrame)
+  unsubscribeRoom = subscribeToGameRoom({
+    roomId: currentRoomId,
+    table: 'ranked_rooms',
+    onStateUpdate: (roomData, isRemote) => {
+      if (!roomData || !Array.isArray(roomData.territories)) return;
+      let stateChanged = false;
+
+      roomData.territories.forEach(remoteT => {
+        const localT = territories.find(t => t.id === remoteT.id);
+        if (localT && localT.owner !== remoteT.owner) {
+          localT.owner = remoteT.owner;
+          stateChanged = true;
+
+          // State Interpolation: smooth visual transition on changed sector
+          if (isRemote) {
+            const poly = document.getElementById(`poly-sector-${localT.id}`);
+            if (poly) applyStateInterpolation(poly, localT.owner);
+
+            if (localT.owner === 'enemy') {
+              sounds.playClick();
+              showToast(`OPPONENT ACTION: Rival conquered ${localT.name}!`, '⚔️', true);
+            } else if (localT.owner === 'user') {
+              sounds.playReward();
+              showToast(`ALLIED ACTION: ${localT.name} conquered!`, '🎉');
+            }
+          }
+        }
+      });
+
+      if (stateChanged) {
+        renderMap();
+        updateScores();
+        checkVictoryCondition();
+      }
+    },
+    onLatencyChange: (rttMs) => {
+      const badge = document.getElementById('net-latency-badge');
+      const text = document.getElementById('net-latency-text');
+      if (badge && text) {
+        const visual = getLatencyVisualStatus(rttMs);
+        badge.className = `net-status-badge ${visual.badgeClass}`;
+        text.textContent = visual.pingText;
+      }
+    }
+  });
+
   // Modal actions
   if (btnCloseChal) btnCloseChal.addEventListener('click', closeChallengeModal);
   if (btnRunTests) btnRunTests.addEventListener('click', runCurrentTests);
@@ -419,8 +513,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Endgame actions
   if (btnPlayAgain) btnPlayAgain.addEventListener('click', resetMatch);
-  if (btnReturnHub) btnReturnHub.addEventListener('click', () => window.location.href = '/');
+  if (btnReturnHub) btnReturnHub.addEventListener('click', () => {
+    if (unsubscribeRoom) unsubscribeRoom();
+    window.location.href = '/';
+  });
   if (btnConcede) btnConcede.addEventListener('click', concedeMatch);
+
+  // Clean up subscription on window unload
+  window.addEventListener('beforeunload', () => {
+    if (unsubscribeRoom) unsubscribeRoom();
+  });
 
   // Audio toggles
   if (btnToggleBgm) {
@@ -762,6 +864,25 @@ function submitCurrentSolution() {
   renderMap();
   updateScores();
 
+  // Optimistic Write-Back to Supabase Database
+  if (currentRoomId) {
+    const blueCount = territories.filter(t => t.owner === 'user').length;
+    const redCount = territories.filter(t => t.owner === 'enemy').length;
+    writeTerritoryConquest({
+      roomId: currentRoomId,
+      table: 'ranked_rooms',
+      sectorId: sector.id,
+      newOwner: 'user',
+      playerInfo: {
+        id: gameState.player?.name || 'Player_1',
+        name: gameState.player?.name || 'NeoCoder_42'
+      },
+      fullTerritories: territories,
+      blueScore: blueCount,
+      redScore: redCount
+    });
+  }
+
   // Check victory
   checkVictoryCondition();
 }
@@ -776,7 +897,7 @@ function autoSolveCode() {
 
 // ==================== ENEMY AI EXPANSION ====================
 function startEnemyAI() {
-  // Every 30 seconds, the enemy tries to expand into an adjacent neutral territory
+  // Every 32 seconds, the enemy tries to expand into an adjacent neutral territory
   enemyAiInterval = setInterval(() => {
     if (matchEnded) return;
 
@@ -792,6 +913,23 @@ function startEnemyAI() {
 
       renderMap();
       updateScores();
+
+      // Write-back enemy conquest to database
+      if (currentRoomId) {
+        const blueCount = territories.filter(t => t.owner === 'user').length;
+        const redCount = territories.filter(t => t.owner === 'enemy').length;
+        writeTerritoryConquest({
+          roomId: currentRoomId,
+          table: 'ranked_rooms',
+          sectorId: target.id,
+          newOwner: 'enemy',
+          playerInfo: { id: 'rival_ai', name: 'ZeroDayNinja' },
+          fullTerritories: territories,
+          blueScore: blueCount,
+          redScore: redCount
+        });
+      }
+
       checkVictoryCondition();
     }
   }, 32000);
