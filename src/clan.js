@@ -48,6 +48,8 @@ function updateClanHUD() {
   if (identityBadge && currentClan.bannerColor) {
     identityBadge.style.borderColor = currentClan.bannerColor;
   }
+
+  updateClanWarCard();
 }
 
 // Tactical Click Crosshair Effect
@@ -273,140 +275,261 @@ function openClanInfoModal() {
   });
 }
 
+// Update Clan War card state on Clan page
+function updateClanWarCard() {
+  const warStatusBadge = document.getElementById('clan-war-status-badge');
+  const warDescText = document.getElementById('clan-war-desc-text');
+  if (!warStatusBadge) return;
+
+  const isWarActive = gameState.clanWar && gameState.clanWar.isActive;
+  if (isWarActive) {
+    warStatusBadge.className = 'clan-strip-stat status-active-pulse';
+    warStatusBadge.textContent = '● WAR ACTIVE';
+    if (warDescText) {
+      warDescText.textContent = `Live 50-territory war against [DRGN] CyberDragons! ${gameState.clanWar.playerAttemptsRemaining || 5}/5 attempts remaining.`;
+    }
+  } else {
+    warStatusBadge.className = 'clan-strip-stat status-idle';
+    warStatusBadge.textContent = '● NO ONGOING WAR';
+    if (warDescText) {
+      warDescText.textContent = 'No ongoing clan war. Clan Leader or Vice Leader must declare war to unlock the 50-territory continent map.';
+    }
+  }
+}
+
 // ==================== 2. CLAN WAR MODAL ====================
 function openClanWarModal() {
   sounds.playBattle();
   currentClan = getActiveClan();
 
-  const rivalClan = gameState.clanRoster.find(c => c.name !== currentClan.name) || {
-    name: 'CyberDragons',
-    tag: '[DRGN]',
-    rating: '15,200 CP',
-    icon: '🐉',
-    bannerColor: '#EF4444'
+  const clanWar = gameState.clanWar || {
+    isActive: false,
+    playerRole: 'Leader',
+    playerAttemptsRemaining: 5,
+    rivalClan: {
+      name: 'CyberDragons',
+      tag: '[DRGN]',
+      rating: '15,200 CP',
+      icon: '🐉',
+      bannerColor: '#EF4444'
+    }
   };
 
-  const content = `
+  // Case 1: War is already active -> Direct all members directly to the 50-territory war map!
+  if (clanWar.isActive) {
+    sounds.playReward();
+    window.location.href = '/war.html';
+    return;
+  }
+
+  // Case 2: No ongoing war. Check member role permissions (Leader / Vice Leader vs Member)
+  const currentRole = clanWar.playerRole || 'Leader';
+  const canDeclare = (currentRole === 'Leader' || currentRole === 'Vice Leader');
+
+  if (!canDeclare) {
+    // Regular Member View: No Ongoing War
+    const memberContent = `
+      <div class="modal-header clan-war-header">
+        <div class="modal-title-wrap">
+          <span class="modal-badge-tag orange-tag">SYNDICATE WARFARE</span>
+          <h2 class="modal-title">CLAN WAR STATUS</h2>
+        </div>
+        <div class="header-stat">
+          <span>Your Role</span>
+          <strong style="color: #94A3B8">MEMBER</strong>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="no-war-idle-box">
+          <div class="no-war-icon">🛡️</div>
+          <h3 class="no-war-headline">NO ONGOING CLAN WAR</h3>
+          <p class="no-war-desc">
+            Your syndicate <strong>${currentClan.name} ${currentClan.tag}</strong> is not currently engaged in any active Clan War.
+            Only the <strong>Clan Leader</strong> or <strong>Vice Leader</strong> has the tactical authority to initiate matchmaking and declare war.
+          </p>
+          <div class="no-war-meta-box">
+            <div class="meta-item">
+              <span class="meta-lbl">FORMAT</span>
+              <strong class="meta-val">7 Days • 50 Territories</strong>
+            </div>
+            <div class="meta-item">
+              <span class="meta-lbl">MEMBER LIMIT</span>
+              <strong class="meta-val">5 Attempts / Developer</strong>
+            </div>
+            <div class="meta-item">
+              <span class="meta-lbl">BOUNTY</span>
+              <strong class="meta-val" style="color: #FACC15">50,000 CP</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Role Switcher for Testing / Demonstration -->
+        <div class="role-demo-switcher">
+          <span class="switcher-lbl">🎮 TEST DEMO ROLE:</span>
+          <div class="role-btn-group">
+            <button class="role-toggle-btn active" data-role="Member">🛡️ Member (Current)</button>
+            <button class="role-toggle-btn" data-role="Vice Leader">⚔️ Vice Leader</button>
+            <button class="role-toggle-btn" data-role="Leader">👑 Leader</button>
+          </div>
+        </div>
+
+        <div class="war-action-row" style="margin-top: 18px;">
+          <button class="war-cancel-btn" id="btn-close-no-war">
+            <span>CLOSE</span>
+          </button>
+        </div>
+      </div>
+    `;
+
+    openModal(memberContent, 'no-war-modal');
+
+    const closeBtn = document.getElementById('btn-close-no-war');
+    if (closeBtn) closeBtn.addEventListener('click', closeModal);
+
+    // Setup role switchers
+    const roleBtns = document.querySelectorAll('.role-toggle-btn');
+    roleBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const selectedRole = btn.getAttribute('data-role');
+        gameState.clanWar.playerRole = selectedRole;
+        saveState();
+        closeModal();
+        openClanWarModal();
+      });
+    });
+
+    return;
+  }
+
+  // Case 3: Player is Leader or Vice Leader -> Allow searching and declaring 7-Day War
+  const leaderContent = `
     <div class="modal-header clan-war-header">
       <div class="modal-title-wrap">
-        <span class="modal-badge-tag orange-tag">SEASON 4 CLASH</span>
-        <h2 class="modal-title">SYNDICATE CLAN WAR</h2>
+        <span class="modal-badge-tag orange-tag">TACTICAL COMMAND</span>
+        <h2 class="modal-title">DECLARE SYNDICATE CLAN WAR</h2>
       </div>
       <div class="header-stat">
-        <span>Prize Bounty Pool</span>
-        <strong style="color: #FACC15">50,000 CP + TITAN CREST</strong>
+        <span>Command Authority</span>
+        <strong style="color: #FACC15">${currentRole.toUpperCase()} 👑</strong>
       </div>
     </div>
     <div class="modal-body">
-      <!-- Head to Head Clash Arena -->
-      <div class="war-vs-banner">
-        <div class="war-clan-side clan-home">
-          <div class="war-emblem" style="border-color:${currentClan.bannerColor}; box-shadow: 0 0 20px ${currentClan.bannerColor}66">
-            ${currentClan.icon}
-          </div>
-          <h3 class="war-clan-title">${currentClan.name}</h3>
-          <span class="clan-tag-badge">${currentClan.tag}</span>
-          <span class="war-score-text">14,820 CP</span>
-        </div>
-
-        <div class="war-vs-center">
-          <span class="war-vs-pill">VS</span>
-          <div class="war-countdown-box">
-            <span class="countdown-label">TIME REMAINING</span>
-            <strong class="countdown-timer">18h : 42m : 10s</strong>
-          </div>
-        </div>
-
-        <div class="war-clan-side clan-away">
-          <div class="war-emblem" style="border-color:${rivalClan.bannerColor}; box-shadow: 0 0 20px ${rivalClan.bannerColor}66">
-            ${rivalClan.icon}
-          </div>
-          <h3 class="war-clan-title">${rivalClan.name}</h3>
-          <span class="clan-tag-badge" style="color: #EF4444">${rivalClan.tag}</span>
-          <span class="war-score-text">15,200 CP</span>
+      <div class="war-briefing-card">
+        <div class="brief-icon">🗺️</div>
+        <div class="brief-info">
+          <h3>Massive 50-Territory Continent Conquest</h3>
+          <p>
+            Deploy <strong>${currentClan.name}</strong> into a 7-day algorithmic clash against an evenly matched rival syndicate.
+            Capture interlocking territories on the massive map by conquering adjacent sectors first.
+          </p>
         </div>
       </div>
 
-      <!-- Live Battle Sectors -->
-      <h4 class="war-subheading">ACTIVE WAR SECTORS</h4>
-      <div class="war-sectors-grid">
-        <div class="war-sector-card sector-leading">
-          <div class="sector-head">
-            <span class="sector-badge">SECTOR 1 • LEADING</span>
-            <span class="sector-pts">+1,200 CP</span>
-          </div>
-          <h4>Memory Leak Containment</h4>
-          <p>Optimize garbage collection and heap buffers under extreme server load.</p>
-          <div class="sector-progress-bar">
-            <div class="progress-fill home-fill" style="width: 58%"></div>
-          </div>
-          <span class="sector-ratio">58% BitKnights vs 42% CyberDragons</span>
+      <div class="war-rules-grid">
+        <div class="rule-box">
+          <span class="rule-icon">⏱️</span>
+          <strong class="rule-title">7-Day Duration</strong>
+          <span class="rule-sub">War continues continuously for one full week</span>
         </div>
-
-        <div class="war-sector-card sector-contested">
-          <div class="sector-head">
-            <span class="sector-badge orange-badge">SECTOR 2 • CONTESTED</span>
-            <span class="sector-pts">+2,500 CP</span>
-          </div>
-          <h4>Graph Algorithm Siege</h4>
-          <p>Solve dynamic shortest-path queries across 1,000,000 weighted nodes.</p>
-          <div class="sector-progress-bar">
-            <div class="progress-fill home-fill" style="width: 48%"></div>
-          </div>
-          <span class="sector-ratio">48% BitKnights vs 52% CyberDragons</span>
+        <div class="rule-box">
+          <span class="rule-icon">⚡</span>
+          <strong class="rule-title">5 Attempts / Member</strong>
+          <span class="rule-sub">Each developer can execute only 5 problem submissions</span>
         </div>
-
-        <div class="war-sector-card sector-boss">
-          <div class="sector-head">
-            <span class="sector-badge purple-badge">SECTOR 3 • TITAN BOSS</span>
-            <span class="sector-pts">+5,000 CP</span>
-          </div>
-          <h4>NullPointerException Behemoth</h4>
-          <p>Cooperative 5-developer boss raid duel. Defeat before server crash.</p>
-          <div class="sector-progress-bar">
-            <div class="progress-fill boss-fill" style="width: 35%"></div>
-          </div>
-          <span class="sector-ratio">Boss HP: 35% Remaining</span>
+        <div class="rule-box">
+          <span class="rule-icon">📍</span>
+          <strong class="rule-title">50 Territories</strong>
+          <span class="rule-sub">State outline continent map with white borders</span>
+        </div>
+        <div class="rule-box">
+          <span class="rule-icon">🏆</span>
+          <strong class="rule-title">50,000 CP Bounty</strong>
+          <span class="rule-sub">Syndicate with the most sectors captured wins</span>
         </div>
       </div>
 
-      <!-- Action Button -->
-      <div class="war-action-row">
-        <div id="war-deploy-msg" class="war-deploy-msg"></div>
-        <button class="war-deploy-btn" id="btn-deploy-war">
-          <span>⚔️ DEPLOY SQUAD TO WAR SECTOR</span>
+      <!-- Role Switcher for Testing / Demonstration -->
+      <div class="role-demo-switcher">
+        <span class="switcher-lbl">🎮 TEST DEMO ROLE:</span>
+        <div class="role-btn-group">
+          <button class="role-toggle-btn ${currentRole === 'Member' ? 'active' : ''}" data-role="Member">🛡️ Member</button>
+          <button class="role-toggle-btn ${currentRole === 'Vice Leader' ? 'active' : ''}" data-role="Vice Leader">⚔️ Vice Leader</button>
+          <button class="role-toggle-btn ${currentRole === 'Leader' ? 'active' : ''}" data-role="Leader">👑 Leader</button>
+        </div>
+      </div>
+
+      <!-- Matchmaking Status Box -->
+      <div id="war-matchmaking-box" class="matchmaking-status hidden">
+        <div class="pulse-radar"></div>
+        <div class="radar-text" id="war-radar-text">
+          <h5>SEARCHING SYNDICATE REGISTRY...</h5>
+          <p>Pairing against matched 50-member rival syndicate</p>
+        </div>
+      </div>
+
+      <!-- Action Button Row -->
+      <div class="war-action-row" id="war-action-controls">
+        <button class="war-deploy-btn" id="btn-find-clan-war">
+          <span>⚔️ FIND CLAN WAR (START 7-DAY CONQUEST)</span>
         </button>
       </div>
     </div>
   `;
 
-  openModal(content, 'clan-war-modal');
+  openModal(leaderContent, 'clan-war-declaration-modal');
 
-  const deployBtn = document.getElementById('btn-deploy-war');
-  const deployMsg = document.getElementById('war-deploy-msg');
-  if (deployBtn) {
-    deployBtn.addEventListener('click', () => {
-      sounds.playReward();
-      deployBtn.disabled = true;
-      deployBtn.innerHTML = `<span>⚡ DEPLOYING SQUAD...</span>`;
+  // Role toggle buttons
+  const roleBtns = document.querySelectorAll('.role-toggle-btn');
+  roleBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const selectedRole = btn.getAttribute('data-role');
+      gameState.clanWar.playerRole = selectedRole;
+      saveState();
+      closeModal();
+      openClanWarModal();
+    });
+  });
+
+  const findWarBtn = document.getElementById('btn-find-clan-war');
+  const mmBox = document.getElementById('war-matchmaking-box');
+  const radarText = document.getElementById('war-radar-text');
+
+  if (findWarBtn) {
+    findWarBtn.addEventListener('click', () => {
+      sounds.playBattle();
+      mmBox.classList.remove('hidden');
+      findWarBtn.disabled = true;
+      findWarBtn.innerHTML = `<span>⚡ SEARCHING SYNDICATE LADDER...</span>`;
 
       setTimeout(() => {
-        const rewardCP = 350;
-        gameState.player.codePoints += rewardCP;
-        saveState();
-        updateClanHUD();
-
-        sounds.playBattle();
-        deployBtn.innerHTML = `<span>✓ SECTOR SECURED! (+${rewardCP} CP)</span>`;
-        deployBtn.style.background = 'linear-gradient(135deg, #10B981, #059669)';
-
-        if (deployMsg) {
-          deployMsg.innerHTML = `<span style="color:#10B981; font-weight:700;">Victory! Your algorithmic solution scored 99.4% efficiency. Sector secured!</span>`;
+        sounds.playReward();
+        if (radarText) {
+          radarText.innerHTML = `
+            <h5 style="color: #38BDF8">⚔️ RIVAL SYNDICATE FOUND!</h5>
+            <p style="font-size: 0.95rem; color: #FFFFFF; font-weight: 700;">
+              Opponent: <strong style="color: #EF4444">[DRGN] CyberDragons (15,200 CP)</strong>
+            </p>
+            <p style="color: #FACC15; font-size: 0.8rem; margin-top: 4px;">
+              Generating 50-territory continent map... Deploying in 2 seconds!
+            </p>
+          `;
         }
-      }, 1200);
+
+        // Initialize and start clan war
+        gameState.clanWar.isActive = true;
+        gameState.clanWar.startTime = Date.now();
+        gameState.clanWar.playerAttemptsRemaining = 5;
+        saveState();
+
+        setTimeout(() => {
+          closeModal();
+          window.location.href = '/war.html';
+        }, 2000);
+      }, 2000);
     });
   }
 }
+
 
 // ==================== 3. RED LEAVE BUTTON CONFIRMATION ====================
 function openLeaveClanModal() {
@@ -542,6 +665,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Hash routing for direct navigation / testing
   function handleHash() {
+    const params = new URLSearchParams(window.location.search);
+    const roleParam = params.get('role');
+    if (roleParam && ['Leader', 'Vice Leader', 'Member'].includes(roleParam)) {
+      gameState.clanWar.playerRole = roleParam;
+    }
+
     const hash = window.location.hash;
     if (hash === '#info') {
       openClanInfoModal();

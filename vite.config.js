@@ -8,6 +8,7 @@ export default defineConfig({
         main: resolve(__dirname, 'index.html'),
         clan: resolve(__dirname, 'clan.html'),
         ranked: resolve(__dirname, 'ranked.html'),
+        war: resolve(__dirname, 'war.html'),
       },
     },
   },

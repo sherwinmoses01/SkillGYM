@@ -5560,4 +5560,618 @@ html, body {
   border-color: #FFFFFF;
 }
 
+/* ==========================================================================
+   MASSIVE 50-TERRITORY CLAN WAR ARENA (war.html & Role Modals)
+   ========================================================================== */
+
+.war-page-body {
+  background-color: #020306 !important;
+}
+
+.war-top-hud {
+  padding: 8px 24px;
+}
+
+.war-clash-hud {
+  gap: 16px;
+}
+
+.war-faction-card {
+  padding: 5px 12px;
+}
+
+.clan-emblem-glyph {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+/* 7-Day Timer & Attempts Battery Core */
+.war-timer-core {
+  min-width: 220px;
+}
+
+.match-mode-pill.war-pill {
+  color: #FDBA74;
+  background: rgba(249, 115, 22, 0.15);
+  border-color: rgba(249, 115, 22, 0.4);
+}
+
+.war-clock-display {
+  font-size: 1.35rem !important;
+  color: #FACC15 !important;
+  letter-spacing: 0.8px;
+}
+
+.war-attempts-battery-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  padding: 3px 10px;
+  margin-top: 3px;
+}
+
+.attempts-lbl {
+  font-size: 0.6rem;
+  font-weight: 800;
+  color: #94A3B8;
+  letter-spacing: 0.5px;
+}
+
+.attempts-cells-row {
+  display: flex;
+  gap: 4px;
+}
+
+.attempt-pip {
+  width: 13px;
+  height: 7px;
+  border-radius: 2px;
+  transition: all 0.25s ease;
+}
+
+.attempt-pip.filled {
+  background: #38BDF8;
+  box-shadow: 0 0 6px rgba(56, 189, 248, 0.8);
+}
+
+.attempt-pip.empty {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.attempts-count-text {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+
+.reset-war-btn {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #FCA5A5;
+}
+
+.reset-war-btn:hover {
+  background: rgba(239, 68, 68, 0.3);
+  border-color: #EF4444;
+  color: #FFFFFF;
+}
+
+/* War Telemetry */
+.war-telemetry-bar {
+  font-size: 0.72rem;
+}
+
+.war-bounty-telemetry {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(250, 204, 21, 0.08);
+  border: 1px solid rgba(250, 204, 21, 0.25);
+  border-radius: 6px;
+  padding: 2px 8px;
+}
+
+.tele-bounty-ico {
+  font-size: 0.85rem;
+}
+
+/* Massive 50-Territory Map Container */
+.war-map-stage {
+  padding: 10px 18px;
+}
+
+.war-map-container {
+  max-width: 1280px !important;
+  aspect-ratio: 1500 / 780 !important;
+  max-height: 82vh !important;
+}
+
+.war-svg-map {
+  width: 100%;
+  height: 100%;
+}
+
+.war-beacon-group .beacon-main-dot {
+  r: 10px;
+}
+
+.war-sector-label {
+  font-size: 9.5px !important;
+  letter-spacing: 0.4px !important;
+}
+
+.war-legend-dock {
+  font-size: 0.64rem !important;
+  padding: 6px 12px !important;
+  gap: 10px !important;
+}
+
+.attempt-warn-tag {
+  background: rgba(250, 204, 21, 0.15);
+  border: 1px solid #FACC15;
+  color: #FACC15;
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+}
+
+/* ==========================================================================
+   ROLE-BASED CLAN WAR MODALS (clan.html)
+   ========================================================================== */
+
+/* No Ongoing War Idle Box */
+.no-war-idle-box {
+  text-align: center;
+  padding: 22px 18px 16px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.no-war-icon {
+  font-size: 3.2rem;
+  line-height: 1;
+  margin-bottom: 10px;
+  filter: drop-shadow(0 4px 12px rgba(124, 58, 237, 0.4));
+}
+
+.no-war-headline {
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  color: #FFFFFF;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.no-war-desc {
+  font-size: 0.86rem;
+  color: #CBD5E1;
+  line-height: 1.5;
+  max-width: 460px;
+  margin-bottom: 16px;
+}
+
+.no-war-meta-box {
+  width: 100%;
+  max-width: 460px;
+  display: flex;
+  justify-content: space-around;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: center;
+}
+
+.meta-lbl {
+  font-size: 0.62rem;
+  font-weight: 800;
+  color: #94A3B8;
+  letter-spacing: 0.5px;
+}
+
+.meta-val {
+  font-size: 0.8rem;
+  color: #F1F5F9;
+  font-weight: 700;
+}
+
+/* Demo Role Switcher Bar */
+.role-demo-switcher {
+  margin-top: 16px;
+  background: rgba(124, 58, 237, 0.08);
+  border: 1px dashed rgba(167, 139, 250, 0.35);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.switcher-lbl {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: #C4B5FD;
+  letter-spacing: 0.5px;
+}
+
+.role-btn-group {
+  display: flex;
+  gap: 8px;
+}
+
+.role-toggle-btn {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-family: var(--font-tech);
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  color: #E2E8F0;
+  transition: all var(--transition-speed);
+}
+
+.role-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: #FFFFFF;
+}
+
+.role-toggle-btn.active {
+  background: #7C3AED;
+  border-color: #A78BFA;
+  color: #FFFFFF;
+  font-weight: 800;
+  box-shadow: 0 0 14px rgba(124, 58, 237, 0.5);
+}
+
+.war-cancel-btn {
+  width: 100%;
+  padding: 11px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  color: #FFFFFF;
+  font-family: var(--font-tech);
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition-speed);
+}
+
+.war-cancel-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: #FFFFFF;
+}
+
+/* Leader Clan War Declaration View */
+.war-briefing-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: rgba(249, 115, 22, 0.1);
+  border: 1.5px solid rgba(249, 115, 22, 0.35);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+
+.brief-icon {
+  font-size: 2.2rem;
+  line-height: 1;
+}
+
+.brief-info h3 {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  color: #FFFFFF;
+  margin-bottom: 4px;
+}
+
+.brief-info p {
+  font-size: 0.8rem;
+  color: #E2E8F0;
+  line-height: 1.45;
+}
+
+.war-rules-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.rule-box {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rule-icon {
+  font-size: 1.2rem;
+  line-height: 1;
+  margin-bottom: 2px;
+}
+
+.rule-title {
+  font-family: var(--font-tech);
+  font-size: 0.84rem;
+  font-weight: 800;
+  color: #FFFFFF;
+}
+
+.rule-sub {
+  font-size: 0.72rem;
+  color: #94A3B8;
+  line-height: 1.35;
+}
+
+/* ==========================================================================
+   AUTHENTIC CARTOGRAPHIC CONTINENTAL MAP STYLING (war.html)
+   ========================================================================== */
+
+/* Realistic Oceanic Map Stage & Table */
+.war-map-container {
+  background: radial-gradient(ellipse at center, #0B192C 0%, #06111E 55%, #020711 100%) !important;
+  box-shadow: 0 0 50px rgba(0, 0, 0, 0.95), inset 0 0 100px rgba(2, 6, 23, 0.9) !important;
+  border: 1.5px solid rgba(56, 189, 248, 0.28) !important;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Continental Landmass Base Silhouette */
+.continent-landmass-base {
+  fill: #0F1D33;
+  stroke: rgba(255, 255, 255, 0.35);
+  stroke-width: 3.5px;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 30px rgba(0, 0, 0, 0.95));
+}
+
+/* Concentric Ocean Shelf Bathymetry Rings */
+.ocean-contour-outer {
+  fill: none;
+  stroke: rgba(56, 189, 248, 0.12);
+  stroke-width: 42px;
+  stroke-dasharray: 12 8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 16px rgba(56, 189, 248, 0.2));
+}
+
+.ocean-contour-mid {
+  fill: none;
+  stroke: rgba(56, 189, 248, 0.24);
+  stroke-width: 22px;
+  stroke-dasharray: 8 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ocean-contour-surf {
+  fill: none;
+  stroke: rgba(125, 211, 252, 0.52);
+  stroke-width: 7px;
+  stroke-dasharray: 5 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 8px rgba(125, 211, 252, 0.5));
+}
+
+/* Graticules (Latitude & Longitude) */
+.geo-graticule-line {
+  stroke: rgba(56, 189, 248, 0.09);
+  stroke-width: 1px;
+  stroke-dasharray: 5 5;
+}
+
+.geo-graticule-line.prime-parallel,
+.geo-graticule-line.prime-meridian {
+  stroke: rgba(56, 189, 248, 0.18);
+  stroke-dasharray: 8 4;
+}
+
+.geo-graticule-label {
+  fill: rgba(56, 189, 248, 0.4);
+  font-family: var(--font-tech, monospace);
+  font-size: 8.5px;
+  letter-spacing: 1px;
+  font-weight: 700;
+  user-select: none;
+}
+
+/* Watermark Ocean Toponyms */
+.ocean-watermark-text {
+  fill: rgba(148, 163, 184, 0.18);
+  font-family: var(--font-display, sans-serif);
+  font-size: 13px;
+  letter-spacing: 3.5px;
+  font-weight: 900;
+  user-select: none;
+  text-shadow: 0 0 16px rgba(0, 0, 0, 0.9);
+}
+
+/* Glowing River Networks */
+.geo-river-glow {
+  fill: none;
+  stroke: rgba(56, 189, 248, 0.4);
+  stroke-width: 8px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.9));
+}
+
+.geo-river-path {
+  fill: none;
+  stroke: #38BDF8;
+  stroke-width: 3.2px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Topographic Mountain Peaks */
+.geo-mountain-base {
+  fill: #1E293B;
+  stroke: rgba(255, 255, 255, 0.4);
+  stroke-width: 1.2px;
+  stroke-linejoin: round;
+}
+
+.geo-mountain-shade {
+  fill: rgba(15, 23, 42, 0.75);
+}
+
+.geo-mountain-ridge {
+  stroke: rgba(255, 255, 255, 0.75);
+  stroke-width: 1.2px;
+  fill: none;
+}
+
+.geo-mountain-label {
+  fill: rgba(226, 232, 240, 0.65);
+  font-family: var(--font-tech, monospace);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  text-anchor: middle;
+  text-shadow: 0 0 6px rgba(0, 0, 0, 0.9);
+  user-select: none;
+}
+
+/* Cartographic Compass Rose */
+.compass-outer-ring {
+  fill: rgba(15, 23, 42, 0.8);
+  stroke: rgba(56, 189, 248, 0.5);
+  stroke-width: 1.5px;
+  stroke-dasharray: 4 2;
+  filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.8));
+}
+
+.compass-inner-ring {
+  fill: none;
+  stroke: rgba(250, 204, 21, 0.4);
+  stroke-width: 1px;
+}
+
+.compass-center-dot {
+  fill: #FACC15;
+}
+
+.compass-tick {
+  stroke: rgba(56, 189, 248, 0.65);
+  stroke-width: 1.5px;
+}
+
+.compass-point-gold {
+  fill: #FACC15;
+  stroke: #EAB308;
+  stroke-width: 0.5px;
+  filter: drop-shadow(0 0 6px rgba(250, 204, 21, 0.6));
+}
+
+.compass-point-cyan {
+  fill: #38BDF8;
+  stroke: #0284C7;
+  stroke-width: 0.5px;
+}
+
+.compass-point-dark {
+  fill: #0F172A;
+}
+
+.compass-point-minor {
+  fill: rgba(148, 163, 184, 0.6);
+}
+
+.compass-cardinal {
+  fill: #F8FAFC;
+  font-family: var(--font-display, sans-serif);
+  font-size: 11px;
+  font-weight: 900;
+  text-anchor: middle;
+  user-select: none;
+}
+
+.compass-cardinal.compass-north {
+  fill: #FACC15;
+  font-size: 13px;
+  filter: drop-shadow(0 0 6px rgba(250, 204, 21, 0.9));
+}
+
+.compass-sub-label {
+  fill: rgba(56, 189, 248, 0.55);
+  font-family: var(--font-tech, monospace);
+  font-size: 5.5px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-anchor: middle;
+}
+
+/* Organic Territory Polygons on Continental Map */
+.war-svg-map .territory-polygon {
+  stroke: rgba(255, 255, 255, 0.65);
+  stroke-width: 1.6px;
+  stroke-linejoin: round;
+  transition: all 0.25s ease;
+  cursor: pointer;
+}
+
+.war-svg-map .territory-polygon:hover {
+  stroke: #FFFFFF;
+  stroke-width: 2.8px;
+  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.75));
+}
+
+.war-svg-map .territory-neutral {
+  fill: rgba(15, 23, 42, 0.7);
+}
+
+.war-svg-map .territory-neutral:hover {
+  fill: rgba(30, 41, 59, 0.85);
+}
+
+.war-svg-map .territory-blue {
+  fill: rgba(14, 165, 233, 0.42);
+  stroke: #38BDF8;
+  stroke-width: 2.2px;
+  filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.55));
+}
+
+.war-svg-map .territory-red {
+  fill: rgba(239, 68, 68, 0.42);
+  stroke: #F87171;
+  stroke-width: 2.2px;
+  filter: drop-shadow(0 0 12px rgba(239, 68, 68, 0.55));
+}
+
+.war-svg-map .territory-adjacent-accessible {
+  fill: rgba(30, 41, 59, 0.88);
+  stroke: rgba(255, 255, 255, 0.95);
+  stroke-width: 2px;
+  animation: pulseAdjacentBorder 2.4s infinite ease-in-out;
+}
+
+
+
 

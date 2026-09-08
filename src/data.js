@@ -298,15 +298,43 @@ export const gameState = {
     { rank: 3, name: "AdaLovelace_AI", rating: "3,280 ELO", title: "Cyber Sensei" },
     { rank: 4, name: "RecursionQueen", rating: "3,150 ELO", title: "Master" },
     { rank: 5, name: "NeoCoder_42 (You)", rating: "2,840 ELO", title: "Syntax Sentinel" }
-  ]
+  ],
+
+  // 7-Day Clan War State
+  clanWar: {
+    isActive: false,
+    startTime: null,
+    durationMs: 7 * 24 * 60 * 60 * 1000,
+    playerRole: "Leader", // "Leader", "Vice Leader", or "Member"
+    playerAttemptsRemaining: 5,
+    maxAttempts: 5,
+    homeScore: 1,
+    rivalScore: 1,
+    homeClan: {
+      name: "BitKnights",
+      tag: "[KNIGHT]",
+      icon: "🛡️",
+      bannerColor: "#7C3AED"
+    },
+    rivalClan: {
+      id: "clan_cyberdragons",
+      name: "CyberDragons",
+      tag: "[DRGN]",
+      rating: "15,200 CP",
+      icon: "🐉",
+      bannerColor: "#EF4444"
+    },
+    territories: []
+  }
 };
 
-// Persistence helpers for multi-page synchronization (Hub <-> Clan Page)
+// Persistence helpers for multi-page synchronization (Hub <-> Clan Page <-> War Page)
 export function saveState() {
   try {
     const dataToSave = {
       player: gameState.player,
-      clanRoster: gameState.clanRoster
+      clanRoster: gameState.clanRoster,
+      clanWar: gameState.clanWar
     };
     localStorage.setItem('skillgym_game_state', JSON.stringify(dataToSave));
   } catch (e) {
@@ -325,10 +353,30 @@ export function loadState() {
       if (Array.isArray(parsed.clanRoster) && parsed.clanRoster.length > 0) {
         gameState.clanRoster = parsed.clanRoster;
       }
+      if (parsed.clanWar) {
+        Object.assign(gameState.clanWar, parsed.clanWar);
+      }
     }
   } catch (e) {
     console.warn('Could not load from localStorage', e);
   }
+}
+
+// Helper to start a clan war (Callable by Leader or Vice Leader)
+export function startClanWar() {
+  gameState.clanWar.isActive = true;
+  gameState.clanWar.startTime = Date.now();
+  gameState.clanWar.playerAttemptsRemaining = 5;
+  saveState();
+}
+
+// Helper to reset clan war
+export function resetClanWar() {
+  gameState.clanWar.isActive = false;
+  gameState.clanWar.startTime = null;
+  gameState.clanWar.playerAttemptsRemaining = 5;
+  gameState.clanWar.territories = [];
+  saveState();
 }
 
 // Automatically sync on load
