@@ -1,35 +1,36 @@
 // ==============================================================================
-// SkillGYM - Supabase Authentication & User Account Management
+// SkillGYM - Supabase Database Authentication & Player Management
 // ==============================================================================
-// Provides real authentication with Supabase for user signup, login, session
-// persistence, account creation, and syncing player state across all pages.
+// Custom 'public.users' authentication system without external email verification.
+// Credentials (email & password) and game stats are stored and synced directly in
+// Supabase. New accounts start 100% fresh with Level 0, 0 XP, and 0 Code Points.
 // ==============================================================================
 
 import { supabase, isSupabaseConfigured } from './supabase.js';
-import { gameState, saveState } from './data.js';
+import { gameState, saveState, onGameStateSaved } from './data.js';
 import { sounds } from './audio.js';
 
 let currentUser = null;
-let currentSession = null;
 const authListeners = new Set();
 
-// Helper to convert any Pilot ID or username to a valid Supabase auth email
-export function normalizeIdentifier(identifier) {
-  const trimmed = (identifier || '').trim();
-  if (!trimmed) return 'pilot_guest@skillgym.io';
-  if (trimmed.includes('@')) return trimmed.toLowerCase();
-  const safeId = trimmed.toLowerCase().replace(/[^a-z0-9_.-]/g, '');
-  return `${safeId || 'pilot'}@skillgym.io`;
-}
+// Debounced auto-sync of player progression to Supabase public.users
+let dbSyncTimer = null;
+onGameStateSaved(() => {
+  if (!currentUser?.id) return;
+  if (dbSyncTimer) clearTimeout(dbSyncTimer);
+  dbSyncTimer = setTimeout(() => {
+    syncPlayerStatsToDb();
+  }, 1200);
+});
 
 /**
- * Register a new user with a Pilot ID / Username and password in Supabase.
- * No email confirmation required. Automatically generates active session.
+ * Register a new user with email, password, and player name in Supabase public.users.
+ * Starts with all stats zeroed (Level 0, 0 XP, 0 CP, no clan).
  * 
- * @param {object} credentials { identifier, password, username }
+ * @param {object} credentials { email, password, playerName }
  * @returns {Promise<{ success: boolean, user?: object, message?: string, error?: string }>}
  */
-export async function signUpUser({ identifier, password, username }) {
+export async function signUpUser({ email, password, playerName }) {
   if (!isSupabaseConfigured()) {
     return {
       success: false,
@@ -37,88 +38,89 @@ export async function signUpUser({ identifier, password, username }) {
     };
   }
 
-  const rawId = (identifier || username || '').trim();
-  if (!rawId) {
-    return { success: false, error: 'Please enter a Pilot ID / Callsign.' };
-  }
-  if (rawId.length < 3) {
-    return { success: false, error: 'Pilot ID must be at least 3 characters long.' };
-  }
-  if (!password || password.length < 6) {
-    return { success: false, error: 'Passcode must be at least 6 characters long.' };
-  }
+  const cleanEmail = (email || '').trim().toLowerCase();
+  const cleanPassword = (password || '').trim();
+  const cleanName = (playerName || cleanEmail.split('@')[0] || 'NeoPilot').trim();
 
-  const email = normalizeIdentifier(rawId);
-  const cleanUsername = rawId.includes('@') ? rawId.split('@')[0] : rawId;
+  if (!cleanEmail || !cleanEmail.includes('@')) {
+    return { success: false, error: 'Please enter a valid email address.' };
+  }
+  if (!cleanPassword || cleanPassword.length < 6) {
+    return { success: false, error: 'Password must be at least 6 characters.' };
+  }
+  if (!cleanName) {
+    return { success: false, error: 'Please enter a pilot callsign / name.' };
+  }
 
   try {
-    // 1. Create account in Supabase
-    let { data, error } = await supabase.auth.signUp({
-      email: email,
-      password: password,
-      options: {
-        data: {
-          username: cleanUsername,
-          displayName: cleanUsername,
-          pilotId: cleanUsername,
-          avatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=' + encodeURIComponent(cleanUsername)
-        }
-      }
-    });
+    // 1. Check if email already exists in public.users
+    const { data: existing, error: checkError } = await supabase
+      .from('users')
+      .select('id, email')
+      .eq('email', cleanEmail)
+      .maybeSingle();
 
-    // If already registered, attempt instant sign-in directly
-    if (error && (error.message.includes('already registered') || error.message.includes('User already exists'))) {
-      const signInRes = await signInUser({ identifier: rawId, password });
-      if (signInRes.success) {
-        return {
-          success: true,
-          user: signInRes.user,
-          message: `Welcome back, ${cleanUsername}! Signed into existing ID.`
-        };
-      } else {
-        return {
-          success: false,
-          error: `Pilot ID '${cleanUsername}' already exists. Please switch to SIGN IN WITH ID.`
-        };
-      }
+    if (checkError && checkError.code !== 'PGRST116') {
+      console.warn('[Check Existing User Error]', checkError);
     }
 
-    if (error) {
-      return { success: false, error: error.message };
-    }
-
-    // 2. Immediately sign in to establish active session token without any email confirmation
-    const loginAttempt = await supabase.auth.signInWithPassword({
-      email: email,
-      password: password
-    });
-
-    const activeUser = loginAttempt.data?.user || data?.user;
-    if (activeUser) {
-      currentUser = activeUser;
-      currentSession = loginAttempt.data?.session || data?.session;
-      syncPlayerWithUser(activeUser);
-
+    if (existing) {
       return {
-        success: true,
-        user: activeUser,
-        message: `Pilot ID '${cleanUsername}' created! Identity authorized.`
+        success: false,
+        error: `An account with '${cleanEmail}' already exists. Please switch to SIGN IN.`
       };
     }
 
-    return { success: false, error: 'Registration failed. Please check your passcode and try again.' };
+    // 2. Insert new account into public.users with ZEROED initial stats
+    const newUserRecord = {
+      email: cleanEmail,
+      password: cleanPassword,
+      player_name: cleanName,
+      level: 0,
+      xp: 0,
+      max_xp: 100,
+      code_points: 0,
+      clan: null,
+      ranked_wins: 0,
+      ranked_losses: 0,
+      clan_war_contributions: 0
+    };
+
+    const { data: insertedUser, error: insertError } = await supabase
+      .from('users')
+      .insert(newUserRecord)
+      .select()
+      .single();
+
+    if (insertError) {
+      return {
+        success: false,
+        error: insertError.message || 'Failed to create user in database table.'
+      };
+    }
+
+    // 3. Save active session to memory and localStorage
+    currentUser = insertedUser;
+    localStorage.setItem('skillgym_active_user', JSON.stringify(insertedUser));
+    syncPlayerWithDbUser(insertedUser);
+
+    return {
+      success: true,
+      user: insertedUser,
+      message: `Account created for ${cleanName}! Starting fresh: Level 0 • 0 XP • 0 CP.`
+    };
   } catch (err) {
     return { success: false, error: err.message };
   }
 }
 
 /**
- * Sign in existing user with Pilot ID (or email) and password.
+ * Sign in user by matching email and password against public.users table.
  * 
- * @param {object} credentials { identifier, password }
+ * @param {object} credentials { email, password }
  * @returns {Promise<{ success: boolean, user?: object, message?: string, error?: string }>}
  */
-export async function signInUser({ identifier, password }) {
+export async function signInUser({ email, password }) {
   if (!isSupabaseConfigured()) {
     return {
       success: false,
@@ -126,88 +128,161 @@ export async function signInUser({ identifier, password }) {
     };
   }
 
-  const rawId = (identifier || '').trim();
-  if (!rawId) {
-    return { success: false, error: 'Please enter your Pilot ID.' };
-  }
-  if (!password) {
-    return { success: false, error: 'Please enter your passcode.' };
-  }
+  const cleanEmail = (email || '').trim().toLowerCase();
+  const cleanPassword = (password || '').trim();
 
-  const email = normalizeIdentifier(rawId);
-  const displayId = rawId.includes('@') ? rawId.split('@')[0] : rawId;
+  if (!cleanEmail) {
+    return { success: false, error: 'Please enter your email address.' };
+  }
+  if (!cleanPassword) {
+    return { success: false, error: 'Please enter your password.' };
+  }
 
   try {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: email,
-      password: password
-    });
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', cleanEmail)
+      .eq('password', cleanPassword)
+      .maybeSingle();
 
     if (error) {
-      if (error.message.includes('Invalid login credentials')) {
-        return {
-          success: false,
-          error: 'Invalid Pilot ID or passcode. If you are new, click CREATE NEW ID.'
-        };
-      }
       return { success: false, error: error.message };
     }
 
-    if (data?.user) {
-      currentUser = data.user;
-      currentSession = data.session;
-      syncPlayerWithUser(data.user);
+    if (!user) {
       return {
-        success: true,
-        user: data.user,
-        message: `Welcome back, ${gameState.player.name || displayId}!`
+        success: false,
+        error: 'Invalid email or password. If you are new, click CREATE ACCOUNT.'
       };
     }
 
-    return { success: false, error: 'Sign in failed. Check your ID & passcode.' };
+    currentUser = user;
+    localStorage.setItem('skillgym_active_user', JSON.stringify(user));
+    syncPlayerWithDbUser(user);
+
+    return {
+      success: true,
+      user: user,
+      message: `Welcome back, ${user.player_name || user.email.split('@')[0]}!`
+    };
   } catch (err) {
     return { success: false, error: err.message };
   }
 }
 
 /**
- * Sign out user from Supabase.
+ * Sign out user from session.
  */
 export async function signOutUser() {
-  try {
-    await supabase.auth.signOut();
-  } catch (err) {
-    console.warn('Sign out warning:', err);
-  } finally {
-    currentUser = null;
-    currentSession = null;
-    gameState.player.name = 'NeoCoder_42';
-    delete gameState.player.email;
-    delete gameState.player.userId;
-    saveState();
-    notifyAuthChange(null);
+  currentUser = null;
+  localStorage.removeItem('skillgym_active_user');
+
+  // Reset in-memory game state to zeroed baseline
+  gameState.player.name = 'NeoPilot';
+  gameState.player.level = 0;
+  gameState.player.xp = 0;
+  gameState.player.maxXp = 100;
+  gameState.player.codePoints = 0;
+  gameState.player.clan = null;
+  delete gameState.player.email;
+  delete gameState.player.userId;
+  saveState();
+
+  // Reset Gateway Screen and hide Home Screen
+  const gatewayScreen = document.getElementById('auth-gateway-screen');
+  const homeScreen = document.getElementById('home-screen');
+  const sessionPanel = document.getElementById('gateway-panel-session');
+  const tabsRow = document.getElementById('gateway-tabs-row');
+
+  if (sessionPanel) sessionPanel.style.display = 'none';
+  if (tabsRow) tabsRow.style.display = 'flex';
+  switchGatewayTab('signin');
+
+  if (homeScreen) {
+    homeScreen.classList.remove('active');
+    homeScreen.style.display = 'none';
   }
+  if (gatewayScreen) {
+    gatewayScreen.style.display = 'flex';
+    gatewayScreen.classList.add('active');
+  }
+
+  notifyAuthChange(null);
 }
 
 /**
- * Check current logged in user from Supabase session.
+ * Check currently stored user session from localStorage and refresh from Supabase.
  */
 export async function checkInitialAuth() {
   if (!isSupabaseConfigured()) return null;
 
   try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.user) {
-      currentUser = session.user;
-      currentSession = session;
-      syncPlayerWithUser(session.user);
-      notifyAuthChange(session.user);
-      return session.user;
+    const raw = localStorage.getItem('skillgym_active_user');
+    if (!raw) return null;
+    const cached = JSON.parse(raw);
+    if (!cached?.id && !cached?.email) return null;
+
+    // Fetch freshest player stats from public.users table
+    let query = supabase.from('users').select('*');
+    if (cached.id) {
+      query = query.eq('id', cached.id);
+    } else {
+      query = query.eq('email', cached.email);
+    }
+
+    const { data: user, error } = await query.maybeSingle();
+
+    if (user) {
+      currentUser = user;
+      localStorage.setItem('skillgym_active_user', JSON.stringify(user));
+      syncPlayerWithDbUser(user);
+      notifyAuthChange(user);
+      return user;
     }
   } catch (err) {
-    console.warn('[Auth Check Error]', err);
+    console.warn('[Initial Auth Check Error]', err);
   }
   return null;
+}
+
+/**
+ * Synchronize game state player with data loaded from database user row.
+ */
+export function syncPlayerWithDbUser(user) {
+  if (!user) return;
+  gameState.player.name = user.player_name || user.email.split('@')[0];
+  gameState.player.email = user.email;
+  gameState.player.userId = user.id;
+  gameState.player.level = Number.isInteger(user.level) ? user.level : 0;
+  gameState.player.xp = Number.isInteger(user.xp) ? user.xp : 0;
+  gameState.player.maxXp = Number.isInteger(user.max_xp) ? user.max_xp : 100;
+  gameState.player.codePoints = Number.isInteger(user.code_points) ? user.code_points : 0;
+  gameState.player.clan = user.clan || null;
+  saveState();
+  notifyAuthChange(user);
+}
+
+/**
+ * Automatically writes player's progress back to Supabase public.users table.
+ */
+export async function syncPlayerStatsToDb() {
+  if (!currentUser?.id || !isSupabaseConfigured()) return;
+  try {
+    await supabase
+      .from('users')
+      .update({
+        level: gameState.player.level,
+        xp: gameState.player.xp,
+        max_xp: gameState.player.maxXp,
+        code_points: gameState.player.codePoints,
+        clan: gameState.player.clan,
+        player_name: gameState.player.name
+      })
+      .eq('id', currentUser.id);
+  } catch (err) {
+    console.warn('[Sync Stats Warning]', err);
+  }
 }
 
 /**
@@ -231,29 +306,6 @@ function notifyAuthChange(user) {
   });
 }
 
-function syncPlayerWithUser(user) {
-  if (!user) return;
-  const username = user.user_metadata?.username || user.user_metadata?.displayName || user.email.split('@')[0];
-  gameState.player.name = username;
-  gameState.player.email = user.email;
-  gameState.player.userId = user.id;
-  saveState();
-  notifyAuthChange(user);
-}
-
-// Listen to Supabase background auth state changes (token refresh, signout, etc.)
-if (isSupabaseConfigured()) {
-  supabase.auth.onAuthStateChange((event, session) => {
-    currentSession = session;
-    currentUser = session?.user || null;
-    if (session?.user) {
-      syncPlayerWithUser(session.user);
-    } else {
-      notifyAuthChange(null);
-    }
-  });
-}
-
 /**
  * Switches between Gateway Screen tabs on the landing page.
  */
@@ -269,7 +321,7 @@ function switchGatewayTab(tab) {
     if (tabSignUp) tabSignUp.classList.add('active');
     if (formSignIn) formSignIn.style.display = 'none';
     if (formSignUp) formSignUp.style.display = 'block';
-    if (cardTitle) cardTitle.textContent = 'CREATE PILOT ID';
+    if (cardTitle) cardTitle.textContent = 'CREATE PILOT ACCOUNT';
   } else {
     if (tabSignUp) tabSignUp.classList.remove('active');
     if (tabSignIn) tabSignIn.classList.add('active');
@@ -343,33 +395,33 @@ function setupGatewayScreenEvents() {
     btnLogoutSession.addEventListener('click', async () => {
       sounds.playClick();
       await signOutUser();
-      setGatewayAlert('Pilot session disconnected. Please sign in or register an ID.', 'info');
+      setGatewayAlert('Pilot session disconnected. Please sign in or register an account.', 'info');
     });
   }
 
   // Check URL params for redirected auth requirement
   if (typeof window !== 'undefined' && window.location.search.includes('auth=required')) {
-    setGatewayAlert('⚠️ ARENA ACCESS RESTRICTED: Please sign in or create a Pilot ID to enter.', 'warning');
+    setGatewayAlert('⚠️ ARENA ACCESS RESTRICTED: Please sign in or create an account to enter.', 'warning');
   }
 
   if (formSignIn) {
     formSignIn.addEventListener('submit', async (e) => {
       e.preventDefault();
       sounds.playClick();
-      const identifier = document.getElementById('gateway-signin-id')?.value || '';
+      const email = document.getElementById('gateway-signin-email')?.value || '';
       const password = document.getElementById('gateway-signin-password')?.value || '';
       const btn = document.getElementById('gateway-btn-submit-signin');
 
       setGatewayAlert('', 'none');
       if (btn) {
         btn.disabled = true;
-        btn.innerHTML = '<span>TRANSMITTING AUTH CREDENTIALS...</span>';
+        btn.innerHTML = '<span>TRANSMITTING CREDENTIALS...</span>';
       }
 
-      const res = await signInUser({ identifier, password });
+      const res = await signInUser({ email, password });
       if (btn) {
         btn.disabled = false;
-        btn.innerHTML = '<span>⚡ AUTHORIZE &amp; ENTER ARENA</span>';
+        btn.innerHTML = '<span>⚡ SIGN IN &amp; ENTER ARENA</span>';
       }
 
       if (res.success) {
@@ -389,20 +441,21 @@ function setupGatewayScreenEvents() {
     formSignUp.addEventListener('submit', async (e) => {
       e.preventDefault();
       sounds.playClick();
-      const identifier = document.getElementById('gateway-signup-id')?.value || '';
+      const playerName = document.getElementById('gateway-signup-name')?.value || '';
+      const email = document.getElementById('gateway-signup-email')?.value || '';
       const password = document.getElementById('gateway-signup-password')?.value || '';
       const btn = document.getElementById('gateway-btn-submit-signup');
 
       setGatewayAlert('', 'none');
       if (btn) {
         btn.disabled = true;
-        btn.innerHTML = '<span>ACTIVATING PILOT ID...</span>';
+        btn.innerHTML = '<span>ACTIVATING ACCOUNT...</span>';
       }
 
-      const res = await signUpUser({ identifier, password });
+      const res = await signUpUser({ email, password, playerName });
       if (btn) {
         btn.disabled = false;
-        btn.innerHTML = '<span>🛡️ CREATE PILOT ID &amp; ENTER ARENA</span>';
+        btn.innerHTML = '<span>🛡️ CREATE ACCOUNT &amp; ENTER ARENA</span>';
       }
 
       if (res.success) {
@@ -413,7 +466,7 @@ function setupGatewayScreenEvents() {
         }, 600);
       } else {
         sounds.playClick();
-        setGatewayAlert(res.error || 'Pilot ID creation failed', 'error');
+        setGatewayAlert(res.error || 'Account creation failed', 'error');
       }
     });
   }
@@ -441,7 +494,7 @@ export function enterHomeScreen(user) {
  * 
  * @param {object|null} user The active authenticated user or null
  * @param {boolean} requireAuth Whether the current page requires authentication to view
- * @param {boolean} isExplicitAuth Whether this transition was explicitly triggered by user action (login, signup, or click continue)
+ * @param {boolean} isExplicitAuth Whether this transition was explicitly triggered by user action
  */
 function handleScreenAccess(user, requireAuth = false, isExplicitAuth = false) {
   const gatewayScreen = document.getElementById('auth-gateway-screen');
@@ -453,15 +506,14 @@ function handleScreenAccess(user, requireAuth = false, isExplicitAuth = false) {
 
   if (gatewayScreen && homeScreen) {
     if (user) {
-      const displayName = user.user_metadata?.username || user.user_metadata?.displayName || user.email.split('@')[0];
+      const displayName = user.player_name || user.email.split('@')[0];
       if (sessionPilotName) sessionPilotName.textContent = displayName;
       if (sessionPilotEmail) sessionPilotEmail.textContent = user.email;
 
       if (isExplicitAuth) {
-        // User explicitly authorized or clicked Continue -> enter Home Screen
         enterHomeScreen(user);
       } else {
-        // Initial load with existing session -> Keep login gateway FIRST as required
+        // Initial page visit with detected session: keep gateway first
         gatewayScreen.style.display = 'flex';
         gatewayScreen.classList.add('active');
         homeScreen.style.display = 'none';
@@ -524,7 +576,7 @@ function updateAuthHUD(user) {
   if (!container) return;
 
   if (user) {
-    const name = user.user_metadata?.username || user.email.split('@')[0];
+    const name = user.player_name || user.email.split('@')[0];
     container.innerHTML = `
       <div class="auth-user-badge" id="btn-open-profile" title="Signed in as ${user.email}. Click for profile.">
         <span class="auth-dot-online"></span>
@@ -559,7 +611,7 @@ function injectAuthModalDOM() {
       <!-- Modal Header -->
       <div class="modal-header">
         <div class="modal-title-group">
-          <span class="modal-badge-tag">INSTANT ACCESS &bull; NO EMAIL CONFIRMATION NEEDED</span>
+          <span class="modal-badge-tag">SUPABASE DATABASE &bull; ZEROED STATS</span>
           <h3 class="modal-main-title" id="auth-modal-main-title">PILOT AUTHORIZATION</h3>
         </div>
         <button class="modal-close-btn" id="btn-close-auth-modal" title="Close">✕</button>
@@ -571,10 +623,10 @@ function injectAuthModalDOM() {
         <!-- Auth Tabs -->
         <div class="auth-tabs-row" id="auth-tabs-row">
           <button class="auth-tab-btn active" id="tab-btn-signin" data-tab="signin">
-            <span>🔑 SIGN IN WITH ID</span>
+            <span>🔑 SIGN IN</span>
           </button>
           <button class="auth-tab-btn" id="tab-btn-signup" data-tab="signup">
-            <span>🛡️ CREATE NEW ID</span>
+            <span>🛡️ CREATE ACCOUNT</span>
           </button>
         </div>
 
@@ -584,20 +636,19 @@ function injectAuthModalDOM() {
         <!-- TAB 1: SIGN IN FORM -->
         <form class="auth-form-panel active" id="form-signin" autocomplete="on">
           <div class="auth-field-group">
-            <label for="signin-id" class="auth-field-label">PILOT ID / CALLSIGN</label>
+            <label for="signin-email" class="auth-field-label">PILOT EMAIL ADDRESS</label>
             <input 
-              type="text" 
-              id="signin-id" 
+              type="email" 
+              id="signin-email" 
               class="auth-input-control" 
-              placeholder="e.g. ShadowBlade_99" 
+              placeholder="e.g. pilot@skillgym.com" 
               required 
-              autocomplete="username"
+              autocomplete="email"
             >
-            <span class="auth-field-hint highlight">⚡ Enter your Pilot ID (or email)</span>
           </div>
 
           <div class="auth-field-group">
-            <label for="signin-password" class="auth-field-label">SECURITY PASSCODE</label>
+            <label for="signin-password" class="auth-field-label">SECURITY PASSWORD</label>
             <input 
               type="password" 
               id="signin-password" 
@@ -610,29 +661,41 @@ function injectAuthModalDOM() {
 
           <div class="auth-actions-row">
             <button type="submit" class="auth-submit-btn" id="btn-submit-signin">
-              <span>⚡ AUTHORIZE &amp; ENTER ARENA</span>
+              <span>⚡ SIGN IN &amp; ENTER ARENA</span>
             </button>
           </div>
         </form>
 
-        <!-- TAB 2: CREATE ID FORM -->
+        <!-- TAB 2: CREATE ACCOUNT FORM -->
         <form class="auth-form-panel" id="form-signup" autocomplete="on" style="display: none;">
           <div class="auth-field-group">
-            <label for="signup-id" class="auth-field-label">CHOOSE PILOT ID / CALLSIGN</label>
+            <label for="signup-name" class="auth-field-label">PILOT CALLSIGN / DISPLAY NAME</label>
             <input 
               type="text" 
-              id="signup-id" 
+              id="signup-name" 
               class="auth-input-control" 
               placeholder="e.g. CyberValkyrie_01" 
               required 
-              minlength="3"
-              autocomplete="username"
+              minlength="2"
+              autocomplete="name"
             >
-            <span class="auth-field-hint highlight">✨ Instant activation · No email confirmation required</span>
           </div>
 
           <div class="auth-field-group">
-            <label for="signup-password" class="auth-field-label">SECURITY PASSCODE (MIN 6 CHARACTERS)</label>
+            <label for="signup-email" class="auth-field-label">PILOT EMAIL ADDRESS</label>
+            <input 
+              type="email" 
+              id="signup-email" 
+              class="auth-input-control" 
+              placeholder="e.g. pilot@skillgym.com" 
+              required 
+              autocomplete="email"
+            >
+            <span class="auth-field-hint highlight">✨ Starts at Level 0 &bull; 0 XP &bull; 0 CP</span>
+          </div>
+
+          <div class="auth-field-group">
+            <label for="signup-password" class="auth-field-label">SECURITY PASSWORD (MIN 6 CHARACTERS)</label>
             <input 
               type="password" 
               id="signup-password" 
@@ -646,7 +709,7 @@ function injectAuthModalDOM() {
 
           <div class="auth-actions-row">
             <button type="submit" class="auth-submit-btn btn-create-acc" id="btn-submit-signup">
-              <span>🛡️ CREATE PILOT ID &amp; ENTER</span>
+              <span>🛡️ CREATE ACCOUNT &amp; ENTER</span>
             </button>
           </div>
         </form>
@@ -656,33 +719,33 @@ function injectAuthModalDOM() {
           <div class="profile-card-header">
             <div class="profile-avatar-box">👤</div>
             <div class="profile-meta-info">
-              <h4 class="profile-name" id="profile-display-name">NeoCoder</h4>
-              <span class="profile-email" id="profile-display-email">PILOT ID: NeoCoder</span>
-              <span class="profile-status-tag">🟢 SUPABASE CLOUD ACTIVE</span>
+              <h4 class="profile-name" id="profile-display-name">NeoPilot</h4>
+              <span class="profile-email" id="profile-display-email">pilot@skillgym.com</span>
+              <span class="profile-status-tag">🟢 SUPABASE DATABASE ACTIVE</span>
             </div>
           </div>
 
           <div class="profile-details-grid">
             <div class="profile-stat-box">
               <span class="stat-lbl">ALLIANCE CLAN</span>
-              <strong class="stat-val" id="profile-clan-val">BitKnights</strong>
+              <strong class="stat-val" id="profile-clan-val">None</strong>
             </div>
             <div class="profile-stat-box">
               <span class="stat-lbl">CODE POINTS</span>
-              <strong class="stat-val" id="profile-cp-val">6,000 CP</strong>
+              <strong class="stat-val cp-val" id="profile-cp-val">0 CP</strong>
             </div>
             <div class="profile-stat-box">
-              <span class="stat-lbl">SYNTAX LEVEL</span>
-              <strong class="stat-val" id="profile-lvl-val">Level 8</strong>
+              <span class="stat-lbl">EXPERIENCE</span>
+              <strong class="stat-val lvl-val" id="profile-lvl-val">Level 0</strong>
             </div>
             <div class="profile-stat-box">
-              <span class="stat-lbl">AUTH STATUS</span>
-              <strong class="stat-val">INSTANT ID (JWT)</strong>
+              <span class="stat-lbl">DATABASE SYNC</span>
+              <strong class="stat-val" style="color:#10B981;">CONNECTED</strong>
             </div>
           </div>
 
-          <div class="auth-actions-row">
-            <button type="button" class="auth-signout-btn" id="btn-signout-user">
+          <div class="profile-actions-row">
+            <button type="button" class="auth-signout-btn" id="btn-modal-signout">
               <span>🚪 SIGN OUT OF ACCOUNT</span>
             </button>
           </div>
@@ -699,20 +762,18 @@ function injectAuthModalDOM() {
 }
 
 /**
- * Attach listeners to the auth modal DOM elements.
+ * Attaches event handlers to the injected modal.
  */
 function attachAuthModalEvents() {
+  const closeBtn = document.getElementById('btn-close-auth-modal');
   const overlay = document.getElementById('supabase-auth-modal-overlay');
-  const btnClose = document.getElementById('btn-close-auth-modal');
   const tabSignIn = document.getElementById('tab-btn-signin');
   const tabSignUp = document.getElementById('tab-btn-signup');
   const formSignIn = document.getElementById('form-signin');
   const formSignUp = document.getElementById('form-signup');
-  const btnSignOut = document.getElementById('btn-signout-user');
+  const btnSignOut = document.getElementById('btn-modal-signout');
 
-  if (btnClose) {
-    btnClose.addEventListener('click', closeAuthModal);
-  }
+  if (closeBtn) closeBtn.addEventListener('click', closeAuthModal);
 
   if (overlay) {
     overlay.addEventListener('click', (e) => {
@@ -736,24 +797,28 @@ function attachAuthModalEvents() {
     formSignIn.addEventListener('submit', async (e) => {
       e.preventDefault();
       sounds.playClick();
-      const identifier = document.getElementById('signin-id')?.value || '';
+      const email = document.getElementById('signin-email')?.value || '';
       const password = document.getElementById('signin-password')?.value || '';
       const btn = document.getElementById('btn-submit-signin');
 
       setAlert('', 'none');
-      btn.disabled = true;
-      btn.innerHTML = '<span>TRANSMITTING AUTH CREDENTIALS...</span>';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span>TRANSMITTING CREDENTIALS...</span>';
+      }
 
-      const res = await signInUser({ identifier, password });
-      btn.disabled = false;
-      btn.innerHTML = '<span>⚡ AUTHORIZE &amp; ENTER ARENA</span>';
+      const res = await signInUser({ email, password });
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<span>⚡ SIGN IN &amp; ENTER ARENA</span>';
+      }
 
       if (res.success) {
         sounds.playReward();
         setAlert(res.message, 'success');
         setTimeout(() => {
           closeAuthModal();
-        }, 1000);
+        }, 800);
       } else {
         sounds.playClick();
         setAlert(res.error || 'Authentication failed', 'error');
@@ -766,27 +831,32 @@ function attachAuthModalEvents() {
     formSignUp.addEventListener('submit', async (e) => {
       e.preventDefault();
       sounds.playClick();
-      const identifier = document.getElementById('signup-id')?.value || '';
+      const playerName = document.getElementById('signup-name')?.value || '';
+      const email = document.getElementById('signup-email')?.value || '';
       const password = document.getElementById('signup-password')?.value || '';
       const btn = document.getElementById('btn-submit-signup');
 
       setAlert('', 'none');
-      btn.disabled = true;
-      btn.innerHTML = '<span>ACTIVATING PILOT ID...</span>';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span>CREATING ACCOUNT...</span>';
+      }
 
-      const res = await signUpUser({ identifier, password });
-      btn.disabled = false;
-      btn.innerHTML = '<span>🛡️ CREATE PILOT ID &amp; ENTER</span>';
+      const res = await signUpUser({ email, password, playerName });
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<span>🛡️ CREATE ACCOUNT &amp; ENTER</span>';
+      }
 
       if (res.success) {
         sounds.playReward();
         setAlert(res.message, 'success');
         setTimeout(() => {
           closeAuthModal();
-        }, 1200);
+        }, 1000);
       } else {
         sounds.playClick();
-        setAlert(res.error || 'Pilot ID registration failed', 'error');
+        setAlert(res.error || 'Account registration failed', 'error');
       }
     });
   }
@@ -841,18 +911,12 @@ function openProfileModal(user) {
   const cpEl = document.getElementById('profile-cp-val');
   const lvlEl = document.getElementById('profile-lvl-val');
 
-  const username = user.user_metadata?.username || user.email.split('@')[0];
-  if (nameEl) nameEl.textContent = username;
-  if (emailEl) {
-    if (user.email && user.email.endsWith('@skillgym.io')) {
-      emailEl.textContent = `PILOT ID: ${username}`;
-    } else {
-      emailEl.textContent = user.email;
-    }
-  }
-  if (clanEl) clanEl.textContent = gameState.player.clan || 'BitKnights';
-  if (cpEl) cpEl.textContent = `${(gameState.player.codePoints || 6000).toLocaleString()} CP`;
-  if (lvlEl) lvlEl.textContent = `Level ${gameState.player.level || 8}`;
+  const displayName = user.player_name || user.email.split('@')[0];
+  if (nameEl) nameEl.textContent = displayName;
+  if (emailEl) emailEl.textContent = user.email;
+  if (clanEl) clanEl.textContent = gameState.player.clan || 'None (No Clan)';
+  if (cpEl) cpEl.textContent = `${(gameState.player.codePoints || 0).toLocaleString()} CP`;
+  if (lvlEl) lvlEl.textContent = `Level ${gameState.player.level ?? 0} (${gameState.player.xp || 0}/${gameState.player.maxXp || 100} XP)`;
 
   setAlert('', 'none');
   overlay.classList.add('active');
@@ -875,7 +939,7 @@ function switchAuthTab(tab) {
     if (tabSignUp) tabSignUp.classList.add('active');
     if (formSignIn) formSignIn.style.display = 'none';
     if (formSignUp) formSignUp.style.display = 'block';
-    if (titleEl) titleEl.textContent = 'CREATE PILOT ID';
+    if (titleEl) titleEl.textContent = 'CREATE PILOT ACCOUNT';
   } else {
     if (tabSignUp) tabSignUp.classList.remove('active');
     if (tabSignIn) tabSignIn.classList.add('active');

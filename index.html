@@ -77,37 +77,37 @@
           </div>
         </div>
 
-        <!-- Tab Switcher: SIGN IN WITH ID vs CREATE NEW ID -->
+        <!-- Tab Switcher: SIGN IN vs CREATE ACCOUNT -->
         <div class="auth-tabs-row gateway-tabs-row" id="gateway-tabs-row">
           <button class="auth-tab-btn active" id="gateway-tab-signin" type="button">
-            <span>🔑 SIGN IN WITH ID</span>
+            <span>🔑 SIGN IN</span>
           </button>
           <button class="auth-tab-btn" id="gateway-tab-signup" type="button">
-            <span>🛡️ CREATE NEW ID</span>
+            <span>🛡️ CREATE ACCOUNT</span>
           </button>
         </div>
 
         <!-- Alert Banner -->
         <div class="auth-alert-banner" id="gateway-alert-banner" style="display: none;"></div>
 
-        <!-- TAB 1: SIGN IN FORM -->
+        <!-- TAB 1: SIGN IN FORM (EMAIL + PWD) -->
         <form class="auth-form-panel active" id="gateway-form-signin" autocomplete="on">
           <div class="auth-field-group">
-            <label for="gateway-signin-id" class="auth-field-label">PILOT ID / CALLSIGN</label>
+            <label for="gateway-signin-email" class="auth-field-label">PILOT EMAIL ADDRESS</label>
             <input 
-              type="text" 
-              id="gateway-signin-id" 
+              type="email" 
+              id="gateway-signin-email" 
               class="auth-input-control" 
-              placeholder="e.g. ShadowBlade_99" 
+              placeholder="e.g. pilot@skillgym.com" 
               required 
-              autocomplete="username"
+              autocomplete="email"
               autofocus
             >
-            <span class="auth-field-hint highlight">⚡ Enter your Pilot ID (or email)</span>
+            <span class="auth-field-hint highlight">⚡ Enter your registered email</span>
           </div>
 
           <div class="auth-field-group">
-            <label for="gateway-signin-password" class="auth-field-label">SECURITY PASSCODE</label>
+            <label for="gateway-signin-password" class="auth-field-label">SECURITY PASSWORD</label>
             <input 
               type="password" 
               id="gateway-signin-password" 
@@ -120,29 +120,41 @@
 
           <div class="auth-actions-row">
             <button type="submit" class="auth-submit-btn gateway-submit-btn" id="gateway-btn-submit-signin">
-              <span>⚡ AUTHORIZE &amp; ENTER ARENA</span>
+              <span>⚡ SIGN IN &amp; ENTER ARENA</span>
             </button>
           </div>
         </form>
 
-        <!-- TAB 2: CREATE NEW ID FORM -->
+        <!-- TAB 2: CREATE ACCOUNT FORM (NAME + EMAIL + PWD) -->
         <form class="auth-form-panel" id="gateway-form-signup" autocomplete="on" style="display: none;">
           <div class="auth-field-group">
-            <label for="gateway-signup-id" class="auth-field-label">CHOOSE PILOT ID / CALLSIGN</label>
+            <label for="gateway-signup-name" class="auth-field-label">PILOT CALLSIGN / DISPLAY NAME</label>
             <input 
               type="text" 
-              id="gateway-signup-id" 
+              id="gateway-signup-name" 
               class="auth-input-control" 
               placeholder="e.g. CyberValkyrie_01" 
               required 
-              minlength="3"
-              autocomplete="username"
+              minlength="2"
+              autocomplete="name"
             >
-            <span class="auth-field-hint highlight">✨ Instant activation &bull; No email confirmation required</span>
           </div>
 
           <div class="auth-field-group">
-            <label for="gateway-signup-password" class="auth-field-label">SECURITY PASSCODE (MIN 6 CHARACTERS)</label>
+            <label for="gateway-signup-email" class="auth-field-label">PILOT EMAIL ADDRESS</label>
+            <input 
+              type="email" 
+              id="gateway-signup-email" 
+              class="auth-input-control" 
+              placeholder="e.g. pilot@skillgym.com" 
+              required 
+              autocomplete="email"
+            >
+            <span class="auth-field-hint highlight">✨ New accounts start fresh: Level 0 &bull; 0 XP &bull; 0 CP</span>
+          </div>
+
+          <div class="auth-field-group">
+            <label for="gateway-signup-password" class="auth-field-label">SECURITY PASSWORD (MIN 6 CHARACTERS)</label>
             <input 
               type="password" 
               id="gateway-signup-password" 
@@ -156,7 +168,7 @@
 
           <div class="auth-actions-row">
             <button type="submit" class="auth-submit-btn btn-create-acc gateway-submit-btn" id="gateway-btn-submit-signup">
-              <span>🛡️ CREATE PILOT ID &amp; ENTER ARENA</span>
+              <span>🛡️ CREATE ACCOUNT &amp; ENTER ARENA</span>
             </button>
           </div>
         </form>

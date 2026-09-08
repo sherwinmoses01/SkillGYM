@@ -2,15 +2,15 @@
 
 export const gameState = {
   player: {
-    name: "NeoCoder_42",
-    title: "Syntax Sentinel",
-    level: 8,
-    xp: 100,
-    maxXp: 150,
-    codePoints: 6000,
+    name: "NeoPilot",
+    title: "Syntax Initiate",
+    level: 0,
+    xp: 0,
+    maxXp: 100,
+    codePoints: 0,
     activeTheme: "cyberpunk",
     soundMuted: false,
-    clan: "BitKnights"
+    clan: null
   },
 
   coach: {
@@ -328,6 +328,14 @@ export const gameState = {
   }
 };
 
+// State change listeners for database synchronization
+const stateListeners = new Set();
+
+export function onGameStateSaved(callback) {
+  stateListeners.add(callback);
+  return () => stateListeners.delete(callback);
+}
+
 // Persistence helpers for multi-page synchronization (Hub <-> Clan Page <-> War Page)
 export function saveState() {
   try {
@@ -337,6 +345,9 @@ export function saveState() {
       clanWar: gameState.clanWar
     };
     localStorage.setItem('skillgym_game_state', JSON.stringify(dataToSave));
+    stateListeners.forEach(cb => {
+      try { cb(gameState.player); } catch (err) { console.warn(err); }
+    });
   } catch (e) {
     console.warn('Could not save to localStorage', e);
   }
