@@ -4,7 +4,7 @@
 // ==========================================================================
 
 import { gameState, saveState, resetClanWar } from './data.js';
-import { sounds } from './audio.js';
+import { sounds, spawnCrosshair } from './audio.js';
 
 // ==================== 50-TERRITORY CONTINENT GENERATION ====================
 const SECTOR_NAMES = [
@@ -387,7 +387,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Click crosshair
   window.addEventListener('pointerdown', (e) => {
-    spawnCrosshair(e.clientX, e.clientY);
+    spawnCrosshair(e.clientX, e.clientY, sounds, crosshairContainer);
     if (!sounds.bgmStarted && sounds.bgmEnabled) {
       sounds.startBGM();
     }
@@ -458,25 +458,6 @@ function initWarState() {
   warTerritories = gameState.clanWar.territories;
 }
 
-// Tactical Click Crosshair Effect
-function spawnCrosshair(x, y) {
-  if (!crosshairContainer) return;
-  sounds.playCrosshair();
-
-  const burst = document.createElement('div');
-  burst.className = 'crosshair-burst';
-  burst.style.left = `${x}px`;
-  burst.style.top = `${y}px`;
-
-  burst.innerHTML = `
-    <div class="crosshair-ring"></div>
-    <div class="crosshair-corners"></div>
-    <div class="crosshair-center-dot"></div>
-  `;
-
-  crosshairContainer.appendChild(burst);
-  setTimeout(() => burst.remove(), 550);
-}
 
 // Tactical Toast Notification
 let toastTimeout = null;

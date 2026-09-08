@@ -4,7 +4,7 @@
 // ==========================================================================
 
 import { ROADMAP_STEPS } from './learnData.js';
-import { sounds } from './audio.js';
+import { sounds, spawnCrosshair } from './audio.js';
 
 // LeetCode Official SVG Icon
 export const LEETCODE_SVG_ICON = `
@@ -23,6 +23,15 @@ let selectedStepId = 'ALL';
 
 // Storage Key
 const STORAGE_KEY = 'skillgym_solved_dsa_problems';
+
+// Lightweight debounce utility
+function debounce(fn, ms) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), ms);
+  };
+}
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -378,35 +387,21 @@ function initEventListeners() {
   // Crosshair
   const crosshairContainer = document.getElementById('crosshair-container');
   window.addEventListener('pointerdown', (e) => {
-    if (!crosshairContainer) return;
-    sounds.playCrosshair();
-
-    const burst = document.createElement('div');
-    burst.className = 'crosshair-burst';
-    burst.style.left = `${e.clientX}px`;
-    burst.style.top = `${e.clientY}px`;
-
-    burst.innerHTML = `
-      <div class="crosshair-ring"></div>
-      <div class="crosshair-corners"></div>
-      <div class="crosshair-center-dot"></div>
-    `;
-
-    crosshairContainer.appendChild(burst);
-    setTimeout(() => burst.remove(), 550);
+    spawnCrosshair(e.clientX, e.clientY, sounds, crosshairContainer, true);
 
     if (!sounds.bgmStarted && sounds.bgmEnabled) {
       sounds.startBGM();
     }
   });
 
-  // Search Input
+  // Search Input (debounced for performance)
   const searchInput = document.getElementById('search-problems-input');
   if (searchInput) {
-    searchInput.addEventListener('input', (e) => {
-      searchQuery = e.target.value.trim();
+    const debouncedSearch = debounce((val) => {
+      searchQuery = val.trim();
       renderRoadmap();
-    });
+    }, 150);
+    searchInput.addEventListener('input', (e) => debouncedSearch(e.target.value));
   }
 
   // Difficulty Filter Pills

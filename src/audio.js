@@ -9,6 +9,30 @@ class SoundEngine {
     this.bgmStarted = false;
   }
 
+  // Internal helper: play an array of {freq, delay, duration, gain, type} tones
+  _playTones(tones) {
+    if (!this.enabled) return;
+    this.init();
+    if (!this.ctx) return;
+    try {
+      const now = this.ctx.currentTime;
+      tones.forEach(({ freq, delay = 0, duration = 0.15, gainVal = 0.08, type = 'sine' }) => {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, now + delay);
+        gain.gain.setValueAtTime(gainVal, now + delay);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + delay + duration);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now + delay);
+        osc.stop(now + delay + duration + 0.01);
+      });
+    } catch (e) {
+      console.warn('Audio error:', e);
+    }
+  }
+
   init() {
     if (!this.ctx) {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -143,51 +167,26 @@ class SoundEngine {
   }
 
   playBattle() {
-    if (!this.enabled) return;
-    this.init();
-    if (!this.ctx) return;
-
-    try {
-      const now = this.ctx.currentTime;
-      [330, 440, 554, 659].forEach((freq, i) => {
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(freq, now + i * 0.07);
-        gain.gain.setValueAtTime(0.08, now + i * 0.07);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.07 + 0.25);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start(now + i * 0.07);
-        osc.stop(now + i * 0.07 + 0.26);
-      });
-    } catch (e) {
-      console.warn('Audio error:', e);
-    }
+    this._playTones([
+      { freq: 330, delay: 0.00, duration: 0.25, gainVal: 0.08, type: 'sawtooth' },
+      { freq: 440, delay: 0.07, duration: 0.25, gainVal: 0.08, type: 'sawtooth' },
+      { freq: 554, delay: 0.14, duration: 0.25, gainVal: 0.08, type: 'sawtooth' },
+      { freq: 659, delay: 0.21, duration: 0.25, gainVal: 0.08, type: 'sawtooth' },
+    ]);
   }
 
   playReward() {
-    if (!this.enabled) return;
-    this.init();
-    if (!this.ctx) return;
+    this._playTones([
+      { freq: 523.25, delay: 0.00, duration: 0.30, gainVal: 0.10 },
+      { freq: 659.25, delay: 0.06, duration: 0.30, gainVal: 0.10 },
+      { freq: 783.99, delay: 0.12, duration: 0.30, gainVal: 0.10 },
+      { freq: 1046.50, delay: 0.18, duration: 0.30, gainVal: 0.10 },
+    ]);
+  }
 
-    try {
-      const now = this.ctx.currentTime;
-      [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, now + i * 0.06);
-        gain.gain.setValueAtTime(0.1, now + i * 0.06);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.06 + 0.3);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start(now + i * 0.06);
-        osc.stop(now + i * 0.06 + 0.3);
-      });
-    } catch (e) {
-      console.warn('Audio error:', e);
-    }
+  // Alias used by learn.js for problem completion celebration
+  playWin() {
+    this.playReward();
   }
 
   playModalOpen() {
@@ -236,3 +235,31 @@ class SoundEngine {
 }
 
 export const sounds = new SoundEngine();
+
+/**
+ * Shared tactical crosshair effect — spawns a brief animated burst at (x, y).
+ * @param {number} x - clientX coordinate
+ * @param {number} y - clientY coordinate
+ * @param {SoundEngine} soundEngine - the sounds instance to play SFX
+ * @param {HTMLElement|null} container - the #crosshair-container element
+ * @param {boolean} [showCoords=false] - whether to show LOC coordinates label
+ */
+export function spawnCrosshair(x, y, soundEngine, container, showCoords = false) {
+  if (!container) return;
+  soundEngine.playCrosshair();
+
+  const burst = document.createElement('div');
+  burst.className = 'crosshair-burst';
+  burst.style.left = `${x}px`;
+  burst.style.top = `${y}px`;
+
+  burst.innerHTML = `
+    <div class="crosshair-ring"></div>
+    <div class="crosshair-corners"></div>
+    <div class="crosshair-center-dot"></div>
+    ${showCoords ? `<div class="crosshair-coords">LOC [${Math.round(x)}, ${Math.round(y)}] // LOCK</div>` : ''}
+  `;
+
+  container.appendChild(burst);
+  setTimeout(() => burst.remove(), 550);
+}

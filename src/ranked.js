@@ -1,6 +1,6 @@
 // Ranked Territory Conquest Controller for SkillGYM (ranked.html)
 import { gameState, saveState } from './data.js';
-import { sounds } from './audio.js';
+import { sounds, spawnCrosshair } from './audio.js';
 
 // ==================== TERRITORIES DEFINITION ====================
 // 10 state-like polygonal territories fitting together seamlessly
@@ -405,7 +405,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Click crosshair
   window.addEventListener('pointerdown', (e) => {
-    spawnCrosshair(e.clientX, e.clientY);
+    spawnCrosshair(e.clientX, e.clientY, sounds, crosshairContainer, true);
     if (!sounds.bgmStarted && sounds.bgmEnabled) {
       sounds.startBGM();
     }
@@ -462,26 +462,6 @@ function showToast(message, icon = 'ℹ️', isError = false) {
   }, 2800);
 }
 
-// Tactical Crosshair FX
-function spawnCrosshair(x, y) {
-  if (!crosshairContainer) return;
-  sounds.playCrosshair();
-
-  const burst = document.createElement('div');
-  burst.className = 'crosshair-burst';
-  burst.style.left = `${x}px`;
-  burst.style.top = `${y}px`;
-
-  burst.innerHTML = `
-    <div class="crosshair-ring"></div>
-    <div class="crosshair-corners"></div>
-    <div class="crosshair-center-dot"></div>
-    <div class="crosshair-coords">LOC [${Math.round(x)}, ${Math.round(y)}]</div>
-  `;
-
-  crosshairContainer.appendChild(burst);
-  setTimeout(() => burst.remove(), 550);
-}
 
 // ==================== ADJACENCY LOGIC ====================
 // Check if territory is connected to any territory currently owned by the user (Blue)

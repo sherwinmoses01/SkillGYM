@@ -1,6 +1,6 @@
 // Clan Headquarters Controller for SkillGYM (clan.html)
 import { gameState, saveState } from './data.js';
-import { sounds } from './audio.js';
+import { sounds, spawnCrosshair } from './audio.js';
 
 // DOM Elements
 const modalContainer = document.getElementById('modal-container');
@@ -52,26 +52,6 @@ function updateClanHUD() {
   updateClanWarCard();
 }
 
-// Tactical Click Crosshair Effect
-function spawnCrosshair(x, y) {
-  if (!crosshairContainer) return;
-  sounds.playCrosshair();
-
-  const burst = document.createElement('div');
-  burst.className = 'crosshair-burst';
-  burst.style.left = `${x}px`;
-  burst.style.top = `${y}px`;
-
-  burst.innerHTML = `
-    <div class="crosshair-ring"></div>
-    <div class="crosshair-corners"></div>
-    <div class="crosshair-center-dot"></div>
-    <div class="crosshair-coords">LOC [${Math.round(x)}, ${Math.round(y)}] // LOCK</div>
-  `;
-
-  crosshairContainer.appendChild(burst);
-  setTimeout(() => burst.remove(), 550);
-}
 
 // Modal helper
 function openModal(htmlContent, modalClass = '') {
@@ -608,7 +588,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Pointer click crosshair
   window.addEventListener('pointerdown', (e) => {
-    spawnCrosshair(e.clientX, e.clientY);
+    spawnCrosshair(e.clientX, e.clientY, sounds, crosshairContainer, true);
 
     // Autoplay BGM on first interaction
     if (!sounds.bgmStarted && sounds.bgmEnabled) {

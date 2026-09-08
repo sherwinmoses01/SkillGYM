@@ -1,12 +1,11 @@
 // Main Controller for SkillGYM Gamified Learning Arena
 import { gameState } from './data.js';
-import { sounds } from './audio.js';
+import { sounds, spawnCrosshair } from './audio.js';
 import {
   initModals,
   openClanModal,
   openJoinClanView,
   openCreateClanView,
-  openRepoModal,
   openTrainModal,
   openShopModal,
   openMissionsModal,
@@ -112,30 +111,6 @@ export function updateHUD() {
   }
 }
 
-// Tactical Click Crosshair Effect
-function spawnCrosshair(x, y) {
-  if (!crosshairContainer) return;
-
-  sounds.playCrosshair();
-
-  const burst = document.createElement('div');
-  burst.className = 'crosshair-burst';
-  burst.style.left = `${x}px`;
-  burst.style.top = `${y}px`;
-
-  burst.innerHTML = `
-    <div class="crosshair-ring"></div>
-    <div class="crosshair-corners"></div>
-    <div class="crosshair-center-dot"></div>
-    <div class="crosshair-coords">LOC [${Math.round(x)}, ${Math.round(y)}] // LOCK</div>
-  `;
-
-  crosshairContainer.appendChild(burst);
-
-  setTimeout(() => {
-    burst.remove();
-  }, 550);
-}
 
 // AI Coach Dynamic Dialogue
 let currentQuoteIdx = 0;
@@ -270,8 +245,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Crosshair on click anywhere
   window.addEventListener('pointerdown', (e) => {
-    // Avoid triggering crosshair when clicking on close buttons or interactive modal inputs
-    spawnCrosshair(e.clientX, e.clientY);
+    spawnCrosshair(e.clientX, e.clientY, sounds, crosshairContainer, true);
 
     // Auto-start Littleroot BGM on first user interaction
     if (!sounds.bgmStarted && sounds.bgmEnabled) {
