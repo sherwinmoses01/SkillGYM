@@ -353,6 +353,24 @@ export function saveState() {
   }
 }
 
+/** Wipes the persisted game state from localStorage (called on sign-out or new account). */
+export function clearState() {
+  try {
+    localStorage.removeItem('skillgym_game_state');
+    // Reset in-memory to clean defaults
+    gameState.player.name = 'NeoPilot';
+    gameState.player.level = 0;
+    gameState.player.xp = 0;
+    gameState.player.maxXp = 100;
+    gameState.player.codePoints = 0;
+    gameState.player.clan = null;
+    delete gameState.player.email;
+    delete gameState.player.userId;
+  } catch (e) {
+    console.warn('Could not clear localStorage', e);
+  }
+}
+
 export function loadState() {
   try {
     const raw = localStorage.getItem('skillgym_game_state');
@@ -390,6 +408,7 @@ export function resetClanWar() {
   saveState();
 }
 
-// Automatically sync on load
-loadState();
+// NOTE: loadState() is intentionally NOT called here automatically.
+// Auth (auth.js) controls when player data is loaded — only after a valid
+// session is confirmed. This prevents stale localStorage from polluting new accounts.
 

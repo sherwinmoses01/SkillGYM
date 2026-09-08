@@ -7,7 +7,7 @@
 // ==============================================================================
 
 import { supabase, isSupabaseConfigured } from './supabase.js';
-import { gameState, saveState, onGameStateSaved } from './data.js';
+import { gameState, saveState, loadState, clearState, onGameStateSaved } from './data.js';
 import { sounds } from './audio.js';
 
 let currentUser = null;
@@ -99,7 +99,8 @@ export async function signUpUser({ email, password, playerName }) {
       };
     }
 
-    // 3. Save active session to memory and localStorage
+    // 3. Clear any stale game state, then populate with fresh zeroed account
+    clearState();
     currentUser = insertedUser;
     localStorage.setItem('skillgym_active_user', JSON.stringify(insertedUser));
     syncPlayerWithDbUser(insertedUser);
@@ -178,15 +179,8 @@ export async function signOutUser() {
   currentUser = null;
   localStorage.removeItem('skillgym_active_user');
 
-  // Reset in-memory game state to zeroed baseline
-  gameState.player.name = 'NeoPilot';
-  gameState.player.level = 0;
-  gameState.player.xp = 0;
-  gameState.player.maxXp = 100;
-  gameState.player.codePoints = 0;
-  gameState.player.clan = null;
-  delete gameState.player.email;
-  delete gameState.player.userId;
+  // Wipe all persisted game state for a truly clean slate
+  clearState();
   saveState();
 
   // Reset Gateway Screen and hide Home Screen
@@ -236,6 +230,8 @@ export async function checkInitialAuth() {
     if (user) {
       currentUser = user;
       localStorage.setItem('skillgym_active_user', JSON.stringify(user));
+      // Restore clan/war state from localStorage for a returning session
+      loadState();
       syncPlayerWithDbUser(user);
       notifyAuthChange(user);
       return user;
@@ -487,6 +483,8 @@ export function enterHomeScreen(user) {
     homeScreen.classList.add('active');
   }
   updateAuthHUD(user);
+  // Notify main.js to refresh the HUD with authenticated player data
+  window.dispatchEvent(new CustomEvent('skillgym:auth-complete', { detail: { user } }));
 }
 
 /**

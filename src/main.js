@@ -257,10 +257,17 @@ function initKeybindings() {
 // Initialize Application
 document.addEventListener('DOMContentLoaded', () => {
   initModals(modalContainer, updateHUD);
+  // Do NOT call updateHUD() here — auth.js resolves the session asynchronously
+  // and will call updateHUD() via handleScreenAccess → enterHomeScreen flow.
+  // Calling it here would show stale localStorage data (old level/CP) on new accounts.
   initAuthUI();
-  updateHUD();
   attachHoverSounds();
   initKeybindings();
+
+  // Update HUD only after auth confirms the player — prevents stale data flash
+  window.addEventListener('skillgym:auth-complete', () => {
+    updateHUD();
+  });
 
   // Crosshair on click anywhere
   window.addEventListener('pointerdown', (e) => {
