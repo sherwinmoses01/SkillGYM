@@ -7561,6 +7561,18 @@ body.learn-roadmap-page::-webkit-scrollbar-thumb:hover {
   background: rgba(15, 23, 42, 1);
 }
 
+.auth-field-hint {
+  font-family: var(--font-tech);
+  font-size: 0.68rem;
+  color: #64748B;
+  letter-spacing: 0.03em;
+  margin-top: 2px;
+}
+
+.auth-field-hint.highlight {
+  color: #38BDF8;
+}
+
 .auth-alert-banner {
   padding: 10px 14px;
   border-radius: 6px;

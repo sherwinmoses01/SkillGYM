@@ -6,6 +6,7 @@
 import { ROADMAP_STEPS } from './learnData.js';
 import { sounds, spawnCrosshair } from './audio.js';
 import { executeCodeWithJDoodle, isJDoodleConfigured } from './jdoodle.js';
+import { initAuthUI } from './auth.js';
 
 // Safe HTML Escape Helper
 function escapeHtml(str) {
@@ -45,6 +46,7 @@ function debounce(fn, ms) {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
+  initAuthUI();
   loadSolvedState();
   initHUD();
   renderRoadmap();

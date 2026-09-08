@@ -2,6 +2,7 @@
 import { gameState, saveState } from './data.js';
 import { sounds, spawnCrosshair } from './audio.js';
 import { generateRoomId } from './db.js';
+import { initAuthUI } from './auth.js';
 
 // DOM Elements
 const modalContainer = document.getElementById('modal-container');
@@ -590,6 +591,7 @@ function toggleLittlerootBGM() {
 
 // Attach Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
+  initAuthUI();
   updateClanHUD();
 
   // Pointer click crosshair
