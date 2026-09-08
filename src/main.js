@@ -69,8 +69,14 @@ const modeCardTutorial = document.getElementById('mode-card-tutorial');
 
 // Screen Transition Functions
 export function showBattleScreen() {
-  if (homeScreen) homeScreen.classList.remove('active');
+  const gatewayScreen = document.getElementById('auth-gateway-screen');
+  if (gatewayScreen && gatewayScreen.classList.contains('active')) return;
+  if (homeScreen) {
+    homeScreen.classList.remove('active');
+    homeScreen.style.display = 'none';
+  }
   if (battleScreen) {
+    battleScreen.style.display = 'flex';
     battleScreen.classList.add('active');
     if (battleHudCp) {
       battleHudCp.textContent = gameState.player.codePoints.toLocaleString();
@@ -82,8 +88,14 @@ export function showBattleScreen() {
 export function showHomeScreen() {
   const gatewayScreen = document.getElementById('auth-gateway-screen');
   if (gatewayScreen && gatewayScreen.classList.contains('active')) return;
-  if (battleScreen) battleScreen.classList.remove('active');
-  if (homeScreen) homeScreen.classList.add('active');
+  if (battleScreen) {
+    battleScreen.classList.remove('active');
+    battleScreen.style.display = 'none';
+  }
+  if (homeScreen) {
+    homeScreen.style.display = 'flex';
+    homeScreen.classList.add('active');
+  }
   updateHUD();
   sounds.playClick();
 }
@@ -158,6 +170,10 @@ function toggleLittlerootBGM() {
 function initKeybindings() {
   window.addEventListener('keydown', (e) => {
     if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+
+    // Ignore shortcuts when Auth Gateway Screen is active
+    const gatewayScreen = document.getElementById('auth-gateway-screen');
+    if (gatewayScreen && gatewayScreen.classList.contains('active')) return;
 
     const isBattleScreenActive = battleScreen && battleScreen.classList.contains('active');
     const isModalOpen = modalContainer && modalContainer.classList.contains('active');
@@ -248,9 +264,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Crosshair on click anywhere
   window.addEventListener('pointerdown', (e) => {
+    const gatewayScreen = document.getElementById('auth-gateway-screen');
+    if (gatewayScreen && gatewayScreen.classList.contains('active')) return;
+
     spawnCrosshair(e.clientX, e.clientY, sounds, crosshairContainer, true);
 
-    // Auto-start Littleroot BGM on first user interaction
+    // Auto-start Littleroot BGM on first user interaction inside arena
     if (!sounds.bgmStarted && sounds.bgmEnabled) {
       sounds.startBGM();
       if (bgmTrackIndicator) bgmTrackIndicator.classList.add('playing');

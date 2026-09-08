@@ -11,15 +11,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,400;0,600;0,700;1,700&family=JetBrains+Mono:wght@400;600&family=Russo+One&display=swap" rel="stylesheet">
   
   <link rel="stylesheet" href="/src/style.css">
-  <script>
-    // Synchronously check if session token exists in localStorage to avoid layout flicker
-    try {
-      const hasToken = Object.keys(localStorage).some(k => k.includes('-auth-token') && localStorage.getItem(k)?.includes('access_token'));
-      if (hasToken) {
-        document.documentElement.classList.add('auth-session-cached');
-      }
-    } catch (e) {}
-  </script>
 </head>
 <body data-theme="cyberpunk">
   <!-- Scanline & Ambient Vignette FX -->
@@ -59,6 +50,31 @@
         <div class="auth-gateway-card-header">
           <span class="gateway-pill-badge">⚡ INSTANT ID ACCESS &bull; NO EMAIL CONFIRMATION</span>
           <h2 class="gateway-card-title" id="gateway-card-title">PILOT AUTHORIZATION</h2>
+        </div>
+
+        <!-- Active Pilot Session Panel (Shown if returning pilot session detected) -->
+        <div class="auth-active-session-panel" id="gateway-panel-session" style="display: none;">
+          <div class="active-pilot-header">
+            <div class="active-pilot-avatar">⚔️</div>
+            <div class="active-pilot-details">
+              <span class="active-pilot-tag">ACTIVE PILOT SESSION DETECTED</span>
+              <h3 class="active-pilot-name" id="gateway-session-pilot-name">NeoCoder_42</h3>
+              <span class="active-pilot-id" id="gateway-session-pilot-email">neocoder_42@skillgym.io</span>
+            </div>
+          </div>
+          <div class="auth-actions-row session-actions-row">
+            <button type="button" class="auth-submit-btn gateway-submit-btn" id="gateway-btn-continue-session">
+              <span>🚀 ENTER ARENA COMMAND DECK</span>
+            </button>
+            <div class="session-alt-buttons">
+              <button type="button" class="gateway-alt-btn" id="gateway-btn-switch-pilot">
+                <span>🔑 Switch ID / Sign In</span>
+              </button>
+              <button type="button" class="gateway-alt-btn logout" id="gateway-btn-logout-session">
+                <span>🚪 Disconnect / Sign Out</span>
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- Tab Switcher: SIGN IN WITH ID vs CREATE NEW ID -->
@@ -157,7 +173,7 @@
   </div>
 
   <!-- ==================== HOME SCREEN VIEW ==================== -->
-  <div id="home-screen" class="game-viewport screen-view">
+  <div id="home-screen" class="game-viewport screen-view" style="display: none;">
     
     <!-- Top Bar HUD -->
     <header class="top-hud">

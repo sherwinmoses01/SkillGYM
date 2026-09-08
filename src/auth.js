@@ -306,6 +306,9 @@ function setupGatewayScreenEvents() {
   const tabSignUp = document.getElementById('gateway-tab-signup');
   const formSignIn = document.getElementById('gateway-form-signin');
   const formSignUp = document.getElementById('gateway-form-signup');
+  const btnContinueSession = document.getElementById('gateway-btn-continue-session');
+  const btnSwitchPilot = document.getElementById('gateway-btn-switch-pilot');
+  const btnLogoutSession = document.getElementById('gateway-btn-logout-session');
 
   if (tabSignIn && tabSignUp) {
     tabSignIn.addEventListener('click', () => {
@@ -316,6 +319,37 @@ function setupGatewayScreenEvents() {
       sounds.playClick();
       switchGatewayTab('signup');
     });
+  }
+
+  if (btnContinueSession) {
+    btnContinueSession.addEventListener('click', () => {
+      sounds.playReward();
+      enterHomeScreen(currentUser);
+    });
+  }
+
+  if (btnSwitchPilot) {
+    btnSwitchPilot.addEventListener('click', () => {
+      sounds.playClick();
+      const sessionPanel = document.getElementById('gateway-panel-session');
+      const tabsRow = document.getElementById('gateway-tabs-row');
+      if (sessionPanel) sessionPanel.style.display = 'none';
+      if (tabsRow) tabsRow.style.display = 'flex';
+      switchGatewayTab('signin');
+    });
+  }
+
+  if (btnLogoutSession) {
+    btnLogoutSession.addEventListener('click', async () => {
+      sounds.playClick();
+      await signOutUser();
+      setGatewayAlert('Pilot session disconnected. Please sign in or register an ID.', 'info');
+    });
+  }
+
+  // Check URL params for redirected auth requirement
+  if (typeof window !== 'undefined' && window.location.search.includes('auth=required')) {
+    setGatewayAlert('⚠️ ARENA ACCESS RESTRICTED: Please sign in or create a Pilot ID to enter.', 'warning');
   }
 
   if (formSignIn) {
@@ -342,7 +376,7 @@ function setupGatewayScreenEvents() {
         sounds.playReward();
         setGatewayAlert(res.message, 'success');
         setTimeout(() => {
-          handleScreenAccess(res.user);
+          handleScreenAccess(res.user, false, true);
         }, 500);
       } else {
         sounds.playClick();
@@ -375,7 +409,7 @@ function setupGatewayScreenEvents() {
         sounds.playReward();
         setGatewayAlert(res.message, 'success');
         setTimeout(() => {
-          handleScreenAccess(res.user);
+          handleScreenAccess(res.user, false, true);
         }, 600);
       } else {
         sounds.playClick();
@@ -386,21 +420,70 @@ function setupGatewayScreenEvents() {
 }
 
 /**
- * Manages transition between Gateway Screen and Home Screen, and redirects if page requires auth.
+ * Admitted pilot enters the Home Screen Command Deck.
  */
-function handleScreenAccess(user, requireAuth = false) {
+export function enterHomeScreen(user) {
   const gatewayScreen = document.getElementById('auth-gateway-screen');
   const homeScreen = document.getElementById('home-screen');
+  if (gatewayScreen) {
+    gatewayScreen.classList.remove('active');
+    gatewayScreen.style.display = 'none';
+  }
+  if (homeScreen) {
+    homeScreen.style.display = 'flex';
+    homeScreen.classList.add('active');
+  }
+  updateAuthHUD(user);
+}
+
+/**
+ * Manages transition between Gateway Screen and Home Screen, and redirects if page requires auth.
+ * 
+ * @param {object|null} user The active authenticated user or null
+ * @param {boolean} requireAuth Whether the current page requires authentication to view
+ * @param {boolean} isExplicitAuth Whether this transition was explicitly triggered by user action (login, signup, or click continue)
+ */
+function handleScreenAccess(user, requireAuth = false, isExplicitAuth = false) {
+  const gatewayScreen = document.getElementById('auth-gateway-screen');
+  const homeScreen = document.getElementById('home-screen');
+  const sessionPanel = document.getElementById('gateway-panel-session');
+  const tabsRow = document.getElementById('gateway-tabs-row');
+  const sessionPilotName = document.getElementById('gateway-session-pilot-name');
+  const sessionPilotEmail = document.getElementById('gateway-session-pilot-email');
 
   if (gatewayScreen && homeScreen) {
     if (user) {
-      document.documentElement.classList.add('auth-session-cached');
-      gatewayScreen.classList.remove('active');
-      homeScreen.classList.add('active');
+      const displayName = user.user_metadata?.username || user.user_metadata?.displayName || user.email.split('@')[0];
+      if (sessionPilotName) sessionPilotName.textContent = displayName;
+      if (sessionPilotEmail) sessionPilotEmail.textContent = user.email;
+
+      if (isExplicitAuth) {
+        // User explicitly authorized or clicked Continue -> enter Home Screen
+        enterHomeScreen(user);
+      } else {
+        // Initial load with existing session -> Keep login gateway FIRST as required
+        gatewayScreen.style.display = 'flex';
+        gatewayScreen.classList.add('active');
+        homeScreen.style.display = 'none';
+        homeScreen.classList.remove('active');
+
+        if (sessionPanel) sessionPanel.style.display = 'flex';
+        if (tabsRow) tabsRow.style.display = 'none';
+        const formSignIn = document.getElementById('gateway-form-signin');
+        const formSignUp = document.getElementById('gateway-form-signup');
+        if (formSignIn) formSignIn.style.display = 'none';
+        if (formSignUp) formSignUp.style.display = 'none';
+      }
     } else {
-      document.documentElement.classList.remove('auth-session-cached');
+      // Unauthenticated visitor: Gateway MUST appear first, home screen completely hidden
+      gatewayScreen.style.display = 'flex';
       gatewayScreen.classList.add('active');
+      homeScreen.style.display = 'none';
       homeScreen.classList.remove('active');
+
+      if (sessionPanel) sessionPanel.style.display = 'none';
+      if (tabsRow) tabsRow.style.display = 'flex';
+      switchGatewayTab('signin');
       closeAuthModal();
     }
   } else if (requireAuth && !user) {
@@ -418,13 +501,15 @@ export function initAuthUI({ requireAuth = false } = {}) {
   // 2. Initial check
   checkInitialAuth().then(user => {
     updateAuthHUD(user);
-    handleScreenAccess(user, requireAuth);
+    handleScreenAccess(user, requireAuth, false);
   });
 
   // 3. Subscribe to auth changes
   onAuthStateChanged(user => {
     updateAuthHUD(user);
-    handleScreenAccess(user, requireAuth);
+    if (!user) {
+      handleScreenAccess(null, requireAuth, false);
+    }
   });
 
   // 4. Inject Auth Modal into DOM if not present

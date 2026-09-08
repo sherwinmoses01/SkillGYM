@@ -7751,12 +7751,29 @@ body.learn-roadmap-page::-webkit-scrollbar-thumb:hover {
   display: none !important;
 }
 
-html.auth-session-cached #auth-gateway-screen {
+.auth-gateway-viewport.active {
+  display: flex !important;
+  z-index: 9999;
+}
+
+/* While Auth Gateway Screen is active, Home Screen and Battle Screen MUST BE COMPLETELY HIDDEN */
+#auth-gateway-screen.active ~ #home-screen,
+#auth-gateway-screen.active ~ #battle-screen,
+body:has(#auth-gateway-screen.active) #home-screen,
+body:has(#auth-gateway-screen.active) #battle-screen {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Home Screen & Battle Screen strict active state rules */
+#home-screen:not(.active) {
   display: none !important;
 }
 
-html.auth-session-cached #home-screen {
-  display: flex !important;
+#battle-screen:not(.active) {
+  display: none !important;
 }
 
 .auth-gateway-backdrop {
@@ -7919,5 +7936,116 @@ html.auth-session-cached #home-screen {
   color: #64748B;
   letter-spacing: 0.04em;
 }
+
+/* ==================== ACTIVE PILOT SESSION DETECTED PANEL ==================== */
+.auth-active-session-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 12px;
+  padding: 18px;
+  margin-bottom: 20px;
+  box-shadow: 0 0 20px rgba(6, 182, 212, 0.15);
+}
+
+.active-pilot-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.active-pilot-avatar {
+  font-size: 2rem;
+  width: 52px;
+  height: 52px;
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.25), rgba(168, 85, 247, 0.25));
+  border: 1.5px solid rgba(56, 189, 248, 0.4);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 15px rgba(6, 182, 212, 0.2);
+}
+
+.active-pilot-details {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  overflow: hidden;
+}
+
+.active-pilot-tag {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #38BDF8;
+}
+
+.active-pilot-name {
+  margin: 0;
+  font-family: var(--font-tech);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #F8FAFC;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.active-pilot-id {
+  font-size: 0.72rem;
+  color: #94A3B8;
+  font-family: var(--font-code);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session-actions-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.session-alt-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.gateway-alt-btn {
+  flex: 1;
+  background: rgba(30, 41, 59, 0.75);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  color: #CBD5E1;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-family: var(--font-tech);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.gateway-alt-btn:hover {
+  background: rgba(51, 65, 85, 0.95);
+  border-color: #38BDF8;
+  color: #FFFFFF;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
+  transform: translateY(-1px);
+}
+
+.gateway-alt-btn.logout:hover {
+  border-color: #EF4444;
+  color: #FCA5A5;
+  background: rgba(239, 68, 68, 0.15);
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.25);
+}
+
 
 
