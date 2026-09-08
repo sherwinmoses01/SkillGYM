@@ -23,10 +23,11 @@ export default defineConfig(({ mode }) => {
 
             req.on('end', async () => {
               try {
-                const parsed = JSON.parse(body || '{}');
-                const clientId = parsed.clientId || env.VITE_JDOODLE_CLIENT_ID || env.JDOODLE_CLIENT_ID || '';
-                const clientSecret = parsed.clientSecret || env.VITE_JDOODLE_CLIENT_SECRET || env.JDOODLE_CLIENT_SECRET || '';
-                const targetUrl = env.VITE_JDOODLE_API_URL || 'https://api.jdoodle.com/v1/execute';
+                const rawId = parsed.clientId || env.VITE_JDOODLE_CLIENT_ID || env.JDOODLE_CLIENT_ID || '';
+                const rawSec = parsed.clientSecret || env.VITE_JDOODLE_CLIENT_SECRET || env.JDOODLE_CLIENT_SECRET || '';
+                const clientId = String(rawId).replace(/^["']|["']$/g, '');
+                const clientSecret = String(rawSec).replace(/^["']|["']$/g, '');
+                const targetUrl = (env.VITE_JDOODLE_API_URL || 'https://api.jdoodle.com/v1/execute').replace(/^["']|["']$/g, '');
 
                 const response = await fetch(targetUrl, {
                   method: 'POST',

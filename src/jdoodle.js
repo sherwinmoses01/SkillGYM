@@ -13,8 +13,10 @@
 // }
 // ==============================================================================
 
-const JDOODLE_CLIENT_ID = import.meta.env.VITE_JDOODLE_CLIENT_ID || '';
-const JDOODLE_CLIENT_SECRET = import.meta.env.VITE_JDOODLE_CLIENT_SECRET || '';
+const rawClientId = import.meta.env.VITE_JDOODLE_CLIENT_ID || '';
+const rawClientSecret = import.meta.env.VITE_JDOODLE_CLIENT_SECRET || '';
+const JDOODLE_CLIENT_ID = rawClientId.replace(/^["']|["']$/g, '');
+const JDOODLE_CLIENT_SECRET = rawClientSecret.replace(/^["']|["']$/g, '');
 const JDOODLE_API_URL = import.meta.env.VITE_JDOODLE_API_URL || 'https://api.jdoodle.com/v1/execute';
 
 /**
@@ -173,7 +175,7 @@ import json
 
 ${userCode}
 
-tests = json.loads('${JSON.stringify(problem.tests)}')
+tests = json.loads(${JSON.stringify(JSON.stringify(problem.tests))})
 for idx, t in enumerate(tests):
     try:
         fn = globals().get('${problem.fnName}')
@@ -181,7 +183,11 @@ for idx, t in enumerate(tests):
             print(f"SYNTAX_ERROR: Function '${problem.fnName}' not defined")
             break
         res = fn(*t['args'])
-        passed = (res == t['expected'])
+        expected = t['expected']
+        if isinstance(res, (list, tuple)) and isinstance(expected, (list, tuple)):
+            passed = (list(res) == list(expected))
+        else:
+            passed = (res == expected)
         mark = "PASS" if passed else "FAIL"
         print(f"__TEST__{idx}__{mark}__{json.dumps(res)}")
     except Exception as e:
@@ -196,31 +202,25 @@ for idx, t in enumerate(tests):
     versionIndex: '4'
   });
 
-  // If in sandbox fallback mode without cloud keys for Python 3, perform structured mock evaluation
-  if (jdoodleRes.isMockFallback && language === 'python3') {
-    const hasDef = userCode.includes(`def ${problem.fnName}`);
-    const mockResults = [];
-    problem.tests.forEach((test, idx) => {
-      mockResults.push({
-        id: idx + 1,
-        passed: hasDef,
-        resultText: hasDef
-          ? `✓ Test Case ${idx + 1}: Passed (Sandbox Evaluation: ${JSON.stringify(test.expected)})`
-          : `✗ Test Case ${idx + 1}: Function 'def ${problem.fnName}' not defined`
-      });
-    });
+  // If compiler returned an error or non-200, strictly fail the suite
+  if (!jdoodleRes.success || jdoodleRes.error || jdoodleRes.statusCode !== 200) {
+    const errorMsg = jdoodleRes.error || jdoodleRes.output || 'Compiler execution error';
+    const failedTests = problem.tests.map((t, idx) => ({
+      id: idx + 1,
+      passed: false,
+      resultText: `⛔ Test Case ${idx + 1}: Compilation / Execution Failed (${errorMsg})`
+    }));
 
     return {
-      allPassed: hasDef,
-      output: hasDef
-        ? `[JDoodle Sandbox Mode]\nPython 3 '${problem.fnName}' function verified against ${problem.tests.length} tactical test cases.\n\n⚡ For live remote cloud compilation, provide VITE_JDOODLE_CLIENT_ID & VITE_JDOODLE_CLIENT_SECRET in .env.`
-        : `[JDoodle Sandbox Error]\nPlease define 'def ${problem.fnName}' in Python or add JDoodle API credentials.`,
-      rawJdoodleOutput: '',
-      statusCode: 200,
-      memory: '36KB (Local Sandbox)',
-      cpuTime: '0.02s',
-      isMockFallback: true,
-      testResults: mockResults
+      allPassed: false,
+      output: `[JDoodle Compiler Status: ${jdoodleRes.statusCode || 500}]\n${errorMsg}\n\n⛔ CONQUEST BLOCKED: Code did not compile or run cleanly. Region cannot be captured.`,
+      rawJdoodleOutput: jdoodleRes.output || '',
+      statusCode: jdoodleRes.statusCode || 500,
+      memory: jdoodleRes.memory,
+      cpuTime: jdoodleRes.cpuTime,
+      isMockFallback: jdoodleRes.isMockFallback,
+      error: errorMsg,
+      testResults: failedTests
     };
   }
 
@@ -268,8 +268,10 @@ for idx, t in enumerate(tests):
     }
   });
 
+  const verified = allPassed && testResults.length === problem.tests.length && testResults.length > 0 && testResults.every(t => t.passed);
+
   return {
-    allPassed: allPassed && testResults.length === problem.tests.length,
+    allPassed: verified,
     output: jdoodleRes.output,
     rawJdoodleOutput: jdoodleRes.output,
     statusCode: jdoodleRes.statusCode,

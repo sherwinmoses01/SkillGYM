@@ -1,6 +1,6 @@
-// Main Controller for SkillGYM Gamified Learning Arena
 import { gameState } from './data.js';
 import { sounds, spawnCrosshair } from './audio.js';
+import { initAuthUI } from './auth.js';
 import {
   initModals,
   openClanModal,
@@ -239,6 +239,7 @@ function initKeybindings() {
 // Initialize Application
 document.addEventListener('DOMContentLoaded', () => {
   initModals(modalContainer, updateHUD);
+  initAuthUI();
   updateHUD();
   attachHoverSounds();
   initKeybindings();

@@ -14,8 +14,10 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Retrieve credentials from environment (Vite exposes variables prefixed with VITE_)
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const rawUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const rawKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const supabaseUrl = rawUrl.replace(/^["']|["']$/g, '');
+const supabaseAnonKey = rawKey.replace(/^["']|["']$/g, '');
 
 /**
  * Checks whether valid Supabase credentials have been configured in the .env file.
@@ -38,15 +40,15 @@ export function isSupabaseConfigured() {
 
 /**
  * Supabase Client Instance Options:
- * - auth.persistSession: false (Client is used primarily for anonymous game rooms and realtime sync).
- * - auth.autoRefreshToken: false (No user auth refresh loop overhead).
- * - realtime.params.eventsPerSecond: 20 (Allows smooth, high-frequency game room updates).
+ * - auth.persistSession: true (Persists user login session in localStorage across pages).
+ * - auth.autoRefreshToken: true (Automatically refreshes JWT tokens).
+ * - realtime.params.eventsPerSecond: 25 (Allows smooth, high-frequency game room updates).
  */
 const clientOptions = {
   auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-    detectSessionInUrl: false
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true
   },
   realtime: {
     params: {

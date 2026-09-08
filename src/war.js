@@ -20,6 +20,7 @@ import {
   executeCodeWithJDoodle,
   isJDoodleConfigured
 } from './jdoodle.js';
+import { initAuthUI } from './auth.js';
 
 // Multi-language template bank for Clan War JDoodle Cloud execution
 const PYTHON_TEMPLATES = {
@@ -409,6 +410,7 @@ const crosshairContainer = document.getElementById('crosshair-container');
 
 // ==================== INITIALIZATION ====================
 document.addEventListener('DOMContentLoaded', async () => {
+  initAuthUI();
   initWarState();
   renderWarMap();
   updateScores();
@@ -1092,15 +1094,16 @@ async function runCurrentTests() {
 
     if (res.allPassed) {
       sounds.playReward();
-      consoleStatus.textContent = "ALL TESTS PASSED! Ready to submit.";
+      consoleStatus.textContent = "VERIFIED BY COMPILER: ALL OUTPUTS CORRECT";
       consoleStatus.className = "console-status pass";
-      outputHtml += `<div class="test-summary-pass">All ${prob.tests.length} tests verified by JDoodle! Click "Submit & Capture Sector".</div>`;
+      outputHtml += `<div class="test-summary-pass">✅ All ${prob.tests.length} tests verified correct by JDoodle Compiler! Sector is ready to conquer.</div>`;
       consoleOutput.innerHTML = outputHtml;
       return true;
     } else {
       sounds.playClick();
-      consoleStatus.textContent = "TEST SUITE FAILED";
+      consoleStatus.textContent = "CONQUEST REJECTED: INCORRECT CODE OUTPUT";
       consoleStatus.className = "console-status fail";
+      outputHtml += `<div class="test-fail" style="margin-top: 8px; font-weight: bold; border-left: 3px solid #EF4444; padding-left: 8px;">⛔ CONQUEST BLOCKED: Code output did not match required test outputs. Sector cannot be captured.</div>`;
       consoleOutput.innerHTML = outputHtml;
       return false;
     }
@@ -1108,12 +1111,12 @@ async function runCurrentTests() {
     sounds.playClick();
     consoleStatus.textContent = "SYNTAX / RUNTIME ERROR";
     consoleStatus.className = "console-status fail";
-    consoleOutput.innerHTML = `<div class="test-fail">⚠️ Error: ${escapeHtml(err.message)}</div>`;
+    consoleOutput.innerHTML = `<div class="test-fail">⚠️ Error: ${escapeHtml(err.message)}</div><div class="test-fail" style="margin-top: 8px; font-weight: bold;">⛔ CONQUEST BLOCKED: Code failed to compile or execute cleanly.</div>`;
     return false;
   }
 }
 
-// Submit Solution & Capture Sector (Consumes 1 of 5 member attempts)
+// Submit Solution & Capture Sector (ONLY if compiler output is verified correct)
 async function submitCurrentSolution() {
   if (gameState.clanWar.playerAttemptsRemaining <= 0) {
     showToast("No attempts remaining for this week!", "⚠️", true);
@@ -1124,12 +1127,22 @@ async function submitCurrentSolution() {
   const passed = await runCurrentTests();
   if (btnSubmit) btnSubmit.disabled = false;
 
+  // STRICT REQUIREMENT: Only capture sector if code output is verified correct
   if (!passed) {
-    showToast("Solution failed test cases! Review console output.", "⚠️", true);
+    sounds.playClick();
+    showToast("CONQUEST REJECTED: Sector NOT captured! All test cases must produce the correct answer via the compiler.", "⚠️", true);
+
+    const consoleBox = document.getElementById('test-console-box');
+    if (consoleBox) {
+      consoleBox.classList.add('shake-warning');
+      setTimeout(() => consoleBox.classList.remove('shake-warning'), 400);
+    }
     return;
   }
 
-  // Deduct 1 attempt
+  if (!activeChallengeSector) return;
+
+  // Deduct 1 attempt ONLY after verified correct solution
   gameState.clanWar.playerAttemptsRemaining = Math.max(0, gameState.clanWar.playerAttemptsRemaining - 1);
   updateAttemptsDisplay();
 

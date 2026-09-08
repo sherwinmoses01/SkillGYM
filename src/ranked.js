@@ -15,6 +15,7 @@ import {
   executeCodeWithJDoodle,
   isJDoodleConfigured
 } from './jdoodle.js';
+import { initAuthUI } from './auth.js';
 
 // Multi-language template bank for JDoodle Cloud execution
 const PYTHON_TEMPLATES = {
@@ -431,6 +432,11 @@ const crosshairContainer = document.getElementById('crosshair-container');
 
 // ==================== INITIALIZATION ====================
 document.addEventListener('DOMContentLoaded', async () => {
+  initAuthUI();
+  const userDisplay = document.getElementById('user-display-name');
+  if (userDisplay && gameState.player?.name) {
+    userDisplay.textContent = gameState.player.name;
+  }
   renderMap();
   updateScores();
   startTimer();
@@ -914,15 +920,16 @@ async function runCurrentTests() {
 
     if (res.allPassed) {
       sounds.playReward();
-      consoleStatus.textContent = "ALL TESTS PASSED! Ready to submit.";
+      consoleStatus.textContent = "VERIFIED BY COMPILER: ALL OUTPUTS CORRECT";
       consoleStatus.className = "console-status pass";
-      outputHtml += `<div class="test-summary-pass">All ${prob.tests.length} tests verified by JDoodle! Click "Submit & Capture Territory".</div>`;
+      outputHtml += `<div class="test-summary-pass">✅ All ${prob.tests.length} tests verified correct by JDoodle Compiler! Territory is ready to conquer.</div>`;
       consoleOutput.innerHTML = outputHtml;
       return true;
     } else {
       sounds.playClick();
-      consoleStatus.textContent = "TEST SUITE FAILED";
+      consoleStatus.textContent = "CONQUEST REJECTED: INCORRECT CODE OUTPUT";
       consoleStatus.className = "console-status fail";
+      outputHtml += `<div class="test-fail" style="margin-top: 8px; font-weight: bold; border-left: 3px solid #EF4444; padding-left: 8px;">⛔ CONQUEST BLOCKED: Code output did not match required test outputs. Territory cannot be captured.</div>`;
       consoleOutput.innerHTML = outputHtml;
       return false;
     }
@@ -930,21 +937,32 @@ async function runCurrentTests() {
     sounds.playClick();
     consoleStatus.textContent = "SYNTAX / RUNTIME ERROR";
     consoleStatus.className = "console-status fail";
-    consoleOutput.innerHTML = `<div class="test-fail">⚠️ Error: ${escapeHtml(err.message)}</div>`;
+    consoleOutput.innerHTML = `<div class="test-fail">⚠️ Error: ${escapeHtml(err.message)}</div><div class="test-fail" style="margin-top: 8px; font-weight: bold;">⛔ CONQUEST BLOCKED: Code failed to compile or execute cleanly.</div>`;
     return false;
   }
 }
 
-// Submit Solution & Capture Territory
+// Submit Solution & Capture Territory (ONLY if compiler output is verified correct)
 async function submitCurrentSolution() {
   if (btnSubmit) btnSubmit.disabled = true;
   const passed = await runCurrentTests();
   if (btnSubmit) btnSubmit.disabled = false;
 
+  // STRICT REQUIREMENT: Only capture region if code output is verified correct
   if (!passed) {
-    showToast("Solution failed test cases! Review the JDoodle output.", "⚠️", true);
+    sounds.playClick();
+    showToast("CONQUEST REJECTED: Territory NOT captured! All test cases must produce the correct answer via the compiler.", "⚠️", true);
+    
+    // Shake console box for prominent feedback
+    const consoleBox = document.getElementById('test-console-box');
+    if (consoleBox) {
+      consoleBox.classList.add('shake-warning');
+      setTimeout(() => consoleBox.classList.remove('shake-warning'), 400);
+    }
     return;
   }
+
+  if (!activeChallengeSector) return;
 
   // Solution Passed -> Capture Territory for User!
   const sector = activeChallengeSector;
