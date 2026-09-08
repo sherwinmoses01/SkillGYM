@@ -46,7 +46,7 @@ function debounce(fn, ms) {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
-  initAuthUI();
+  initAuthUI({ requireAuth: true });
   loadSolvedState();
   initHUD();
   renderRoadmap();

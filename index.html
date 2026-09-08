@@ -11,6 +11,15 @@
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,400;0,600;0,700;1,700&family=JetBrains+Mono:wght@400;600&family=Russo+One&display=swap" rel="stylesheet">
   
   <link rel="stylesheet" href="/src/style.css">
+  <script>
+    // Synchronously check if session token exists in localStorage to avoid layout flicker
+    try {
+      const hasToken = Object.keys(localStorage).some(k => k.includes('-auth-token') && localStorage.getItem(k)?.includes('access_token'));
+      if (hasToken) {
+        document.documentElement.classList.add('auth-session-cached');
+      }
+    } catch (e) {}
+  </script>
 </head>
 <body data-theme="cyberpunk">
   <!-- Scanline & Ambient Vignette FX -->
@@ -20,8 +29,135 @@
   <!-- Tactical Click Crosshair Container -->
   <div id="crosshair-container" class="crosshair-container"></div>
 
+  <!-- ==================== AUTH GATEWAY SCREEN (LOGIN / SIGN UP FIRST) ==================== -->
+  <div id="auth-gateway-screen" class="game-viewport screen-view auth-gateway-viewport active">
+    
+    <!-- Ambient Cyber Backdrop with Grid & Particles -->
+    <div class="auth-gateway-backdrop">
+      <div class="gateway-glow-orb orb-cyan"></div>
+      <div class="gateway-glow-orb orb-purple"></div>
+      <div class="cyber-grid-floor"></div>
+    </div>
+
+    <div class="auth-gateway-container">
+      
+      <!-- SkillGYM Cyber Logo & Headline -->
+      <div class="auth-gateway-brand">
+        <div class="gateway-shield-badge">
+          <span class="gateway-shield-icon">⚔️</span>
+        </div>
+        <div class="gateway-logo-text-group">
+          <span class="gateway-logo-tag">ARENA PILOT ACCESS CONTROL</span>
+          <h1 class="gateway-main-title">Skill<span class="neon-cyan-text">GYM</span></h1>
+          <p class="gateway-subtitle">AI-POWERED GAMIFIED TECH ARENA &bull; PROVE YOUR SYNTAX</p>
+        </div>
+      </div>
+
+      <!-- Auth Gateway Card (Glassmorphic Cyberpunk Card) -->
+      <div class="auth-gateway-card">
+        
+        <div class="auth-gateway-card-header">
+          <span class="gateway-pill-badge">⚡ INSTANT ID ACCESS &bull; NO EMAIL CONFIRMATION</span>
+          <h2 class="gateway-card-title" id="gateway-card-title">PILOT AUTHORIZATION</h2>
+        </div>
+
+        <!-- Tab Switcher: SIGN IN WITH ID vs CREATE NEW ID -->
+        <div class="auth-tabs-row gateway-tabs-row" id="gateway-tabs-row">
+          <button class="auth-tab-btn active" id="gateway-tab-signin" type="button">
+            <span>🔑 SIGN IN WITH ID</span>
+          </button>
+          <button class="auth-tab-btn" id="gateway-tab-signup" type="button">
+            <span>🛡️ CREATE NEW ID</span>
+          </button>
+        </div>
+
+        <!-- Alert Banner -->
+        <div class="auth-alert-banner" id="gateway-alert-banner" style="display: none;"></div>
+
+        <!-- TAB 1: SIGN IN FORM -->
+        <form class="auth-form-panel active" id="gateway-form-signin" autocomplete="on">
+          <div class="auth-field-group">
+            <label for="gateway-signin-id" class="auth-field-label">PILOT ID / CALLSIGN</label>
+            <input 
+              type="text" 
+              id="gateway-signin-id" 
+              class="auth-input-control" 
+              placeholder="e.g. ShadowBlade_99" 
+              required 
+              autocomplete="username"
+              autofocus
+            >
+            <span class="auth-field-hint highlight">⚡ Enter your Pilot ID (or email)</span>
+          </div>
+
+          <div class="auth-field-group">
+            <label for="gateway-signin-password" class="auth-field-label">SECURITY PASSCODE</label>
+            <input 
+              type="password" 
+              id="gateway-signin-password" 
+              class="auth-input-control" 
+              placeholder="••••••••" 
+              required 
+              autocomplete="current-password"
+            >
+          </div>
+
+          <div class="auth-actions-row">
+            <button type="submit" class="auth-submit-btn gateway-submit-btn" id="gateway-btn-submit-signin">
+              <span>⚡ AUTHORIZE &amp; ENTER ARENA</span>
+            </button>
+          </div>
+        </form>
+
+        <!-- TAB 2: CREATE NEW ID FORM -->
+        <form class="auth-form-panel" id="gateway-form-signup" autocomplete="on" style="display: none;">
+          <div class="auth-field-group">
+            <label for="gateway-signup-id" class="auth-field-label">CHOOSE PILOT ID / CALLSIGN</label>
+            <input 
+              type="text" 
+              id="gateway-signup-id" 
+              class="auth-input-control" 
+              placeholder="e.g. CyberValkyrie_01" 
+              required 
+              minlength="3"
+              autocomplete="username"
+            >
+            <span class="auth-field-hint highlight">✨ Instant activation &bull; No email confirmation required</span>
+          </div>
+
+          <div class="auth-field-group">
+            <label for="gateway-signup-password" class="auth-field-label">SECURITY PASSCODE (MIN 6 CHARACTERS)</label>
+            <input 
+              type="password" 
+              id="gateway-signup-password" 
+              class="auth-input-control" 
+              placeholder="••••••••" 
+              required 
+              minlength="6"
+              autocomplete="new-password"
+            >
+          </div>
+
+          <div class="auth-actions-row">
+            <button type="submit" class="auth-submit-btn btn-create-acc gateway-submit-btn" id="gateway-btn-submit-signup">
+              <span>🛡️ CREATE PILOT ID &amp; ENTER ARENA</span>
+            </button>
+          </div>
+        </form>
+
+        <!-- Security Footer -->
+        <div class="gateway-footer-note">
+          <span>🔒 Supabase Cloud Identity &bull; Encrypted Session Tokens</span>
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
   <!-- ==================== HOME SCREEN VIEW ==================== -->
-  <div id="home-screen" class="game-viewport screen-view active">
+  <div id="home-screen" class="game-viewport screen-view">
     
     <!-- Top Bar HUD -->
     <header class="top-hud">

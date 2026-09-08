@@ -432,7 +432,7 @@ const crosshairContainer = document.getElementById('crosshair-container');
 
 // ==================== INITIALIZATION ====================
 document.addEventListener('DOMContentLoaded', async () => {
-  initAuthUI();
+  initAuthUI({ requireAuth: true });
   const userDisplay = document.getElementById('user-display-name');
   if (userDisplay && gameState.player?.name) {
     userDisplay.textContent = gameState.player.name;

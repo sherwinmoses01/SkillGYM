@@ -591,7 +591,7 @@ function toggleLittlerootBGM() {
 
 // Attach Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
-  initAuthUI();
+  initAuthUI({ requireAuth: true });
   updateClanHUD();
 
   // Pointer click crosshair

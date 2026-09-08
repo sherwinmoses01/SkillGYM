@@ -80,6 +80,8 @@ export function showBattleScreen() {
 }
 
 export function showHomeScreen() {
+  const gatewayScreen = document.getElementById('auth-gateway-screen');
+  if (gatewayScreen && gatewayScreen.classList.contains('active')) return;
   if (battleScreen) battleScreen.classList.remove('active');
   if (homeScreen) homeScreen.classList.add('active');
   updateHUD();
@@ -437,6 +439,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Hash routing for direct navigation / testing
   function handleHash() {
+    const gatewayScreen = document.getElementById('auth-gateway-screen');
+    if (gatewayScreen && gatewayScreen.classList.contains('active')) return;
     const hash = window.location.hash;
     if (hash === '#battle') {
       showBattleScreen();

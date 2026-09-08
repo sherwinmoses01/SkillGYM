@@ -410,7 +410,7 @@ const crosshairContainer = document.getElementById('crosshair-container');
 
 // ==================== INITIALIZATION ====================
 document.addEventListener('DOMContentLoaded', async () => {
-  initAuthUI();
+  initAuthUI({ requireAuth: true });
   initWarState();
   renderWarMap();
   updateScores();

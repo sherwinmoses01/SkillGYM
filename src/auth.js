@@ -255,20 +255,179 @@ if (isSupabaseConfigured()) {
 }
 
 /**
- * Initializes the Auth HUD Widget and Modal across pages.
+ * Switches between Gateway Screen tabs on the landing page.
  */
-export function initAuthUI() {
-  // 1. Initial check
+function switchGatewayTab(tab) {
+  const tabSignIn = document.getElementById('gateway-tab-signin');
+  const tabSignUp = document.getElementById('gateway-tab-signup');
+  const formSignIn = document.getElementById('gateway-form-signin');
+  const formSignUp = document.getElementById('gateway-form-signup');
+  const cardTitle = document.getElementById('gateway-card-title');
+
+  if (tab === 'signup') {
+    if (tabSignIn) tabSignIn.classList.remove('active');
+    if (tabSignUp) tabSignUp.classList.add('active');
+    if (formSignIn) formSignIn.style.display = 'none';
+    if (formSignUp) formSignUp.style.display = 'block';
+    if (cardTitle) cardTitle.textContent = 'CREATE PILOT ID';
+  } else {
+    if (tabSignUp) tabSignUp.classList.remove('active');
+    if (tabSignIn) tabSignIn.classList.add('active');
+    if (formSignUp) formSignUp.style.display = 'none';
+    if (formSignIn) formSignIn.style.display = 'block';
+    if (cardTitle) cardTitle.textContent = 'PILOT AUTHORIZATION';
+  }
+}
+
+/**
+ * Sets alert banner on the Gateway Screen.
+ */
+function setGatewayAlert(msg, type = 'none') {
+  const alertEl = document.getElementById('gateway-alert-banner');
+  if (!alertEl) return;
+
+  if (type === 'none' || !msg) {
+    alertEl.style.display = 'none';
+    alertEl.textContent = '';
+    alertEl.className = 'auth-alert-banner';
+    return;
+  }
+
+  alertEl.style.display = 'block';
+  alertEl.textContent = msg;
+  alertEl.className = `auth-alert-banner alert-${type}`;
+}
+
+/**
+ * Sets up event handlers on the Gateway Screen on the landing page.
+ */
+function setupGatewayScreenEvents() {
+  const tabSignIn = document.getElementById('gateway-tab-signin');
+  const tabSignUp = document.getElementById('gateway-tab-signup');
+  const formSignIn = document.getElementById('gateway-form-signin');
+  const formSignUp = document.getElementById('gateway-form-signup');
+
+  if (tabSignIn && tabSignUp) {
+    tabSignIn.addEventListener('click', () => {
+      sounds.playClick();
+      switchGatewayTab('signin');
+    });
+    tabSignUp.addEventListener('click', () => {
+      sounds.playClick();
+      switchGatewayTab('signup');
+    });
+  }
+
+  if (formSignIn) {
+    formSignIn.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      sounds.playClick();
+      const identifier = document.getElementById('gateway-signin-id')?.value || '';
+      const password = document.getElementById('gateway-signin-password')?.value || '';
+      const btn = document.getElementById('gateway-btn-submit-signin');
+
+      setGatewayAlert('', 'none');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span>TRANSMITTING AUTH CREDENTIALS...</span>';
+      }
+
+      const res = await signInUser({ identifier, password });
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<span>⚡ AUTHORIZE &amp; ENTER ARENA</span>';
+      }
+
+      if (res.success) {
+        sounds.playReward();
+        setGatewayAlert(res.message, 'success');
+        setTimeout(() => {
+          handleScreenAccess(res.user);
+        }, 500);
+      } else {
+        sounds.playClick();
+        setGatewayAlert(res.error || 'Authentication failed', 'error');
+      }
+    });
+  }
+
+  if (formSignUp) {
+    formSignUp.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      sounds.playClick();
+      const identifier = document.getElementById('gateway-signup-id')?.value || '';
+      const password = document.getElementById('gateway-signup-password')?.value || '';
+      const btn = document.getElementById('gateway-btn-submit-signup');
+
+      setGatewayAlert('', 'none');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span>ACTIVATING PILOT ID...</span>';
+      }
+
+      const res = await signUpUser({ identifier, password });
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<span>🛡️ CREATE PILOT ID &amp; ENTER ARENA</span>';
+      }
+
+      if (res.success) {
+        sounds.playReward();
+        setGatewayAlert(res.message, 'success');
+        setTimeout(() => {
+          handleScreenAccess(res.user);
+        }, 600);
+      } else {
+        sounds.playClick();
+        setGatewayAlert(res.error || 'Pilot ID creation failed', 'error');
+      }
+    });
+  }
+}
+
+/**
+ * Manages transition between Gateway Screen and Home Screen, and redirects if page requires auth.
+ */
+function handleScreenAccess(user, requireAuth = false) {
+  const gatewayScreen = document.getElementById('auth-gateway-screen');
+  const homeScreen = document.getElementById('home-screen');
+
+  if (gatewayScreen && homeScreen) {
+    if (user) {
+      document.documentElement.classList.add('auth-session-cached');
+      gatewayScreen.classList.remove('active');
+      homeScreen.classList.add('active');
+    } else {
+      document.documentElement.classList.remove('auth-session-cached');
+      gatewayScreen.classList.add('active');
+      homeScreen.classList.remove('active');
+      closeAuthModal();
+    }
+  } else if (requireAuth && !user) {
+    window.location.href = '/?auth=required';
+  }
+}
+
+/**
+ * Initializes the Auth HUD Widget, Gateway Screen, and Modal across pages.
+ */
+export function initAuthUI({ requireAuth = false } = {}) {
+  // 1. Setup Gateway Screen listeners if present on index.html
+  setupGatewayScreenEvents();
+
+  // 2. Initial check
   checkInitialAuth().then(user => {
     updateAuthHUD(user);
+    handleScreenAccess(user, requireAuth);
   });
 
-  // 2. Subscribe to auth changes
+  // 3. Subscribe to auth changes
   onAuthStateChanged(user => {
     updateAuthHUD(user);
+    handleScreenAccess(user, requireAuth);
   });
 
-  // 3. Inject Auth Modal into DOM if not present
+  // 4. Inject Auth Modal into DOM if not present
   injectAuthModalDOM();
 }
 
