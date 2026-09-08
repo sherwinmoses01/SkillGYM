@@ -44,7 +44,7 @@ const coachText = document.getElementById('coach-text');
 // Home Action Cards
 const btnBattle = document.getElementById('btn-battle');
 const btnClan = document.getElementById('btn-clan');
-const btnRepo = document.getElementById('btn-repo');
+const btnLearn = document.getElementById('btn-learn') || document.getElementById('btn-repo');
 const btnTrain = document.getElementById('btn-train');
 const btnShop = document.getElementById('btn-shop');
 
@@ -240,7 +240,7 @@ function initKeybindings() {
           }
           break;
         case '3':
-          openRepoModal();
+          window.location.href = '/learn.html';
           break;
         case '4':
         case 't':
@@ -351,11 +351,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  if (btnRepo) {
-    btnRepo.addEventListener('click', (e) => {
+  if (btnLearn) {
+    btnLearn.addEventListener('click', (e) => {
       e.stopPropagation();
       sounds.playClick();
-      openRepoModal();
+      window.location.href = '/learn.html';
     });
   }
 

@@ -9,6 +9,7 @@ export default defineConfig({
         clan: resolve(__dirname, 'clan.html'),
         ranked: resolve(__dirname, 'ranked.html'),
         war: resolve(__dirname, 'war.html'),
+        learn: resolve(__dirname, 'learn.html'),
       },
     },
   },
