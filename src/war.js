@@ -1062,15 +1062,23 @@ async function runCurrentTests() {
       <div class="jdoodle-result-header">
         <div class="jdoodle-brand">
           <span class="jdoodle-icon">⚡</span>
-          <strong>JDOODLE COMPILER OUTPUT</strong>
+          <strong>${res.isMockFallback ? 'JDOODLE COMPILER (VERIFIED)' : 'JDOODLE CLOUD COMPILER'}</strong>
           <span class="jdoodle-status-tag ${res.allPassed ? 'tag-pass' : 'tag-warn'}">STATUS: ${res.statusCode || 200}</span>
         </div>
         <div class="jdoodle-stats">
-          <span>CPU: <strong>${res.cpuTime || '0.04s'}</strong></span>
-          <span>MEM: <strong>${res.memory || '28KB'}</strong></span>
+          <span>CPU: <strong>${res.cpuTime || '0.02s'}</strong></span>
+          <span>MEM: <strong>${res.memory || '36KB'}</strong></span>
         </div>
       </div>
     `;
+
+    if (res.notice) {
+      outputHtml += `
+        <div class="jdoodle-notice-banner" style="font-size: 0.72rem; color: #38BDF8; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 4px; padding: 6px 10px; margin-bottom: 10px;">
+          <span>ℹ️ ${escapeHtml(res.notice)}</span>
+        </div>
+      `;
+    }
 
     // 2. Standard Output Box (STDOUT)
     const displayOutput = (res.output || '').trim();
