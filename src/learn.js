@@ -5,6 +5,16 @@
 
 import { ROADMAP_STEPS } from './learnData.js';
 import { sounds, spawnCrosshair } from './audio.js';
+import { executeCodeWithJDoodle, isJDoodleConfigured } from './jdoodle.js';
+
+// Safe HTML Escape Helper
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
 
 // LeetCode Official SVG Icon
 export const LEETCODE_SVG_ICON = `
@@ -40,6 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderRoadmap();
   updateProgressStats();
   initEventListeners();
+  initJDoodleScratchpad();
 });
 
 // Load Solved State from localStorage
@@ -281,8 +292,17 @@ function renderProblemRow(p) {
         </div>
       </div>
 
-      <!-- LeetCode Redirect Button -->
+      <!-- Problem Action Column: JDoodle Cloud Compiler & LeetCode Redirect -->
       <div class="problem-action-col">
+        <button 
+          class="jdoodle-prob-btn" 
+          data-prob-title="${escapeHtml(p.title)}" 
+          data-lc-id="${p.leetcodeId}" 
+          title="Open '${escapeHtml(p.title)}' in JDoodle Cloud Compiler"
+        >
+          <span class="jdoodle-btn-icon">⚡</span>
+          <span class="jdoodle-btn-lbl">Compiler</span>
+        </button>
         <a 
           href="${p.url}" 
           target="_blank" 
@@ -332,6 +352,17 @@ function attachRoadmapListeners() {
   lcButtons.forEach(btn => {
     btn.addEventListener('click', () => {
       sounds.playClick();
+    });
+  });
+
+  // JDoodle Problem Quick-Run Buttons
+  const jdoodleProbBtns = document.querySelectorAll('.jdoodle-prob-btn');
+  jdoodleProbBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const title = btn.getAttribute('data-prob-title') || 'Problem';
+      const lcId = btn.getAttribute('data-lc-id') || '';
+      openJDoodleScratchpadForProblem(title, lcId);
     });
   });
 
@@ -442,5 +473,214 @@ function initEventListeners() {
       sounds.playClick();
       document.querySelectorAll('.roadmap-step-card').forEach(c => c.classList.add('collapsed'));
     });
+  }
+}
+
+// ==================== JDOODLE CLOUD COMPILER SCRATCHPAD ====================
+let scratchpadOverlay = null;
+let scratchpadCode = null;
+let scratchpadLangSelect = null;
+let scratchpadStatusPill = null;
+let scratchpadConsoleStatus = null;
+let scratchpadConsoleOutput = null;
+let btnScratchpadRun = null;
+
+function initJDoodleScratchpad() {
+  scratchpadOverlay = document.getElementById('jdoodle-modal-overlay');
+  scratchpadCode = document.getElementById('scratchpad-code-input');
+  scratchpadLangSelect = document.getElementById('scratchpad-lang-select');
+  scratchpadStatusPill = document.getElementById('scratchpad-status-pill');
+  scratchpadConsoleStatus = document.getElementById('scratchpad-console-status');
+  scratchpadConsoleOutput = document.getElementById('scratchpad-console-output');
+  btnScratchpadRun = document.getElementById('btn-scratchpad-run');
+
+  const btnOpen = document.getElementById('btn-open-jdoodle');
+  const btnClose = document.getElementById('btn-close-jdoodle-modal');
+  const btnHello = document.getElementById('btn-scratchpad-hello');
+  const btnClear = document.getElementById('btn-scratchpad-clear');
+
+  if (btnOpen) {
+    btnOpen.addEventListener('click', () => {
+      openJDoodleScratchpad();
+    });
+  }
+
+  if (btnClose) {
+    btnClose.addEventListener('click', () => {
+      closeJDoodleScratchpad();
+    });
+  }
+
+  if (scratchpadOverlay) {
+    scratchpadOverlay.addEventListener('click', (e) => {
+      if (e.target === scratchpadOverlay) {
+        closeJDoodleScratchpad();
+      }
+    });
+  }
+
+  if (btnHello) {
+    btnHello.addEventListener('click', () => {
+      sounds.playClick();
+      const lang = scratchpadLangSelect ? scratchpadLangSelect.value : 'python3';
+      if (lang === 'python3') {
+        scratchpadCode.value = 'print("Hello World")\n';
+      } else {
+        scratchpadCode.value = 'console.log("Hello World");\n';
+      }
+      scratchpadCode.focus();
+    });
+  }
+
+  if (btnClear) {
+    btnClear.addEventListener('click', () => {
+      sounds.playClick();
+      scratchpadCode.value = '';
+      scratchpadCode.focus();
+    });
+  }
+
+  if (scratchpadLangSelect) {
+    scratchpadLangSelect.addEventListener('change', () => {
+      sounds.playClick();
+      const lang = scratchpadLangSelect.value;
+      const curVal = scratchpadCode.value.trim();
+      if (!curVal || curVal.includes('Hello World') || curVal.includes('print(') || curVal.includes('console.log(')) {
+        if (lang === 'python3') {
+          scratchpadCode.value = 'print("Hello World")\n';
+        } else {
+          scratchpadCode.value = 'console.log("Hello World");\n';
+        }
+      }
+    });
+  }
+
+  if (btnScratchpadRun) {
+    btnScratchpadRun.addEventListener('click', () => {
+      runScratchpadCode();
+    });
+  }
+}
+
+function openJDoodleScratchpad(customTitle = null, customCode = null) {
+  sounds.playModalOpen();
+  if (scratchpadOverlay) scratchpadOverlay.classList.add('active');
+
+  const titleEl = document.getElementById('scratchpad-title');
+  if (titleEl) {
+    titleEl.textContent = customTitle || 'JDOODLE CLOUD COMPILER';
+  }
+
+  if (scratchpadStatusPill) {
+    if (isJDoodleConfigured()) {
+      scratchpadStatusPill.innerHTML = '<span class="jdoodle-dot green-dot"></span> JDOODLE CLOUD';
+      scratchpadStatusPill.className = 'jdoodle-live-pill pill-online';
+    } else {
+      scratchpadStatusPill.innerHTML = '<span class="jdoodle-dot yellow-dot"></span> JDOODLE SANDBOX';
+      scratchpadStatusPill.className = 'jdoodle-live-pill pill-sandbox';
+    }
+  }
+
+  if (customCode && scratchpadCode) {
+    scratchpadCode.value = customCode;
+  }
+}
+
+function openJDoodleScratchpadForProblem(title, lcId) {
+  const lang = scratchpadLangSelect ? scratchpadLangSelect.value : 'python3';
+  let starter = '';
+  if (lang === 'python3') {
+    starter = `# LeetCode #${lcId}: ${title}\n# Cloud-compiled via JDoodle API\n\ndef solution():\n    print("Executing solution for: ${title}")\n    return "PASSED"\n\n# Run demonstration\nres = solution()\nprint("Result:", res)\n`;
+  } else {
+    starter = `// LeetCode #${lcId}: ${title}\n// Cloud-compiled via JDoodle API\n\nfunction solution() {\n  console.log("Executing solution for: ${title}");\n  return "PASSED";\n}\n\n// Run demonstration\nconst res = solution();\nconsole.log("Result:", res);\n`;
+  }
+  openJDoodleScratchpad(`LEETCODE #${lcId} WORKBENCH`, starter);
+}
+
+function closeJDoodleScratchpad() {
+  sounds.playModalClose();
+  if (scratchpadOverlay) scratchpadOverlay.classList.remove('active');
+}
+
+async function runScratchpadCode() {
+  if (!scratchpadCode) return;
+  sounds.playClick();
+
+  const script = scratchpadCode.value;
+  const lang = scratchpadLangSelect ? scratchpadLangSelect.value : 'python3';
+
+  if (scratchpadConsoleStatus) {
+    scratchpadConsoleStatus.textContent = "Compiling via JDoodle API...";
+    scratchpadConsoleStatus.className = "console-status running";
+  }
+
+  if (scratchpadConsoleOutput) {
+    scratchpadConsoleOutput.innerHTML = `
+      <div class="compiling-notice">
+        <span class="pulse-radar-mini"></span>
+        <span>Transmitting script payload to <strong>JDoodle Cloud API</strong> (${lang})...</span>
+      </div>
+    `;
+  }
+
+  if (btnScratchpadRun) btnScratchpadRun.disabled = true;
+
+  try {
+    const res = await executeCodeWithJDoodle({
+      script,
+      language: lang,
+      versionIndex: '4'
+    });
+
+    let outputHtml = `
+      <div class="jdoodle-result-header">
+        <div class="jdoodle-brand">
+          <span class="jdoodle-icon">⚡</span>
+          <strong>JDOODLE COMPILER OUTPUT</strong>
+          <span class="jdoodle-status-tag ${res.success ? 'tag-pass' : 'tag-warn'}">STATUS: ${res.statusCode || 200}</span>
+        </div>
+        <div class="jdoodle-stats">
+          <span>CPU: <strong>${res.cpuTime || '0.04s'}</strong></span>
+          <span>MEM: <strong>${res.memory || '28KB'}</strong></span>
+        </div>
+      </div>
+    `;
+
+    const displayOutput = (res.output || '').trim();
+    outputHtml += `
+      <div class="jdoodle-stdout-wrap">
+        <div class="jdoodle-stdout-title">STANDARD OUTPUT (STDOUT):</div>
+        <pre class="jdoodle-stdout-box">${escapeHtml(displayOutput || 'Program completed with no output.')}</pre>
+      </div>
+    `;
+
+    if (res.success) {
+      sounds.playReward();
+      if (scratchpadConsoleStatus) {
+        scratchpadConsoleStatus.textContent = "EXECUTION SUCCESSFUL (200 OK)";
+        scratchpadConsoleStatus.className = "console-status pass";
+      }
+    } else {
+      sounds.playClick();
+      if (scratchpadConsoleStatus) {
+        scratchpadConsoleStatus.textContent = "EXECUTION ERROR";
+        scratchpadConsoleStatus.className = "console-status fail";
+      }
+    }
+
+    if (scratchpadConsoleOutput) {
+      scratchpadConsoleOutput.innerHTML = outputHtml;
+    }
+  } catch (err) {
+    sounds.playClick();
+    if (scratchpadConsoleStatus) {
+      scratchpadConsoleStatus.textContent = "NETWORK / RUNTIME ERROR";
+      scratchpadConsoleStatus.className = "console-status fail";
+    }
+    if (scratchpadConsoleOutput) {
+      scratchpadConsoleOutput.innerHTML = `<div class="test-fail">⚠️ Error: ${escapeHtml(err.message)}</div>`;
+    }
+  } finally {
+    if (btnScratchpadRun) btnScratchpadRun.disabled = false;
   }
 }

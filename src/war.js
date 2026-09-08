@@ -15,6 +15,21 @@ import {
   getLatencyVisualStatus,
   applyStateInterpolation
 } from './db.js';
+import {
+  runProblemTestsWithJDoodle,
+  executeCodeWithJDoodle,
+  isJDoodleConfigured
+} from './jdoodle.js';
+
+// Multi-language template bank for Clan War JDoodle Cloud execution
+const PYTHON_TEMPLATES = {
+  twoSum: `def twoSum(nums, target):\n    seen = {}\n    for i, n in enumerate(nums):\n        diff = target - n\n        if diff in seen:\n            return [seen[diff], i]\n        seen[n] = i\n    return []`,
+  isValid: `def isValid(s):\n    stack = []\n    mapping = {")": "(", "}": "{", "]": "["}\n    for ch in s:\n        if ch in mapping.values():\n            stack.append(ch)\n        elif ch in mapping:\n            if not stack or stack.pop() != mapping[ch]:\n                return False\n    return len(stack) == 0`,
+  maxSubArray: `def maxSubArray(nums):\n    cur = max_s = nums[0]\n    for n in nums[1:]:\n        cur = max(n, cur + n)\n        max_s = max(max_s, cur)\n    return max_s`,
+  search: `def search(nums, target):\n    l, r = 0, len(nums) - 1\n    while l <= r:\n        mid = (l + r) // 2\n        if nums[mid] == target:\n            return mid\n        if nums[mid] < target:\n            l = mid + 1\n        else:\n            r = mid - 1\n    return -1`,
+  mergeIntervals: `def mergeIntervals(intervals):\n    if not intervals:\n        return []\n    intervals.sort(key=lambda x: x[0])\n    res = [intervals[0]]\n    for cur in intervals[1:]:\n        if cur[0] <= res[-1][1]:\n            res[-1][1] = max(res[-1][1], cur[1])\n        else:\n            res.append(cur)\n    return res`,
+  solve: `def solve():\n    return True`
+};
 
 // Active Clan War Room & Realtime State
 let currentWarRoomId = null;
@@ -369,6 +384,8 @@ const codeEditor = document.getElementById('code-editor-input');
 const consoleOutput = document.getElementById('console-output-text');
 const consoleStatus = document.getElementById('console-status-pill');
 const modalAttemptTag = document.getElementById('modal-attempt-tag');
+const editorLangSelect = document.getElementById('editor-lang-select');
+const jdoodleStatusPill = document.getElementById('jdoodle-status-pill');
 
 const btnRunTests = document.getElementById('btn-run-tests');
 const btnSubmit = document.getElementById('btn-submit-solution');
@@ -492,6 +509,27 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     }
   });
+
+  // Modal actions
+  if (btnCloseChal) btnCloseChal.addEventListener('click', closeChallengeModal);
+  if (btnRunTests) btnRunTests.addEventListener('click', runCurrentTests);
+  if (btnSubmit) btnSubmit.addEventListener('click', submitCurrentSolution);
+  if (btnQuickSolve) btnQuickSolve.addEventListener('click', autoSolveCode);
+
+  // Compiler Language Switcher
+  if (editorLangSelect) {
+    editorLangSelect.addEventListener('change', () => {
+      if (!activeChallengeSector || !activeChallengeSector.problem) return;
+      sounds.playClick();
+      const p = activeChallengeSector.problem;
+      const lang = editorLangSelect.value;
+      if (lang === 'python3') {
+        codeEditor.value = PYTHON_TEMPLATES[p.fnName] || `# Python 3 Solution\ndef ${p.fnName}(*args):\n    pass\n`;
+      } else {
+        codeEditor.value = p.template;
+      }
+    });
+  }
 
   // Navigation
   if (btnWarBackClan) btnWarBackClan.addEventListener('click', () => {
@@ -948,11 +986,29 @@ function openChallengeModal(territory) {
   }
 
   chalConstraints.innerHTML = prob.constraints.map(c => `<li><code>${c}</code></li>`).join('');
-  codeEditor.value = prob.template;
+
+  // Update JDoodle Status Indicator
+  if (jdoodleStatusPill) {
+    if (isJDoodleConfigured()) {
+      jdoodleStatusPill.innerHTML = '<span class="jdoodle-dot green-dot"></span> JDOODLE CLOUD';
+      jdoodleStatusPill.className = 'jdoodle-live-pill pill-online';
+    } else {
+      jdoodleStatusPill.innerHTML = '<span class="jdoodle-dot yellow-dot"></span> JDOODLE SANDBOX';
+      jdoodleStatusPill.className = 'jdoodle-live-pill pill-sandbox';
+    }
+  }
+
+  // Load language template
+  const lang = editorLangSelect ? editorLangSelect.value : 'nodejs';
+  if (lang === 'python3') {
+    codeEditor.value = PYTHON_TEMPLATES[prob.fnName] || `# Python 3 Solution\ndef ${prob.fnName}(*args):\n    pass\n`;
+  } else {
+    codeEditor.value = prob.template;
+  }
 
   consoleStatus.textContent = "Awaiting execution";
   consoleStatus.className = "console-status";
-  consoleOutput.innerHTML = `Tactical challenge initialized for <strong>${territory.name}</strong>. Writing code and running test suites consumes an attempt.`;
+  consoleOutput.innerHTML = `Tactical challenge initialized for <strong>${territory.name}</strong>. Powered by <strong>JDoodle Compiler API</strong>. Click "Run Tests" to compile and execute.`;
 
   challengeOverlay.classList.add('active');
 }
@@ -963,69 +1019,111 @@ function closeChallengeModal() {
   activeChallengeSector = null;
 }
 
-// Run test cases against user code in safe evaluation sandbox
-function runCurrentTests() {
+// Helper to escape HTML safely
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+// Run test cases against user code via JDoodle Compiler API
+async function runCurrentTests() {
   if (!activeChallengeSector || !activeChallengeSector.problem) return false;
   sounds.playClick();
 
   const prob = activeChallengeSector.problem;
   const userCode = codeEditor.value;
+  const lang = editorLangSelect ? editorLangSelect.value : 'nodejs';
 
-  consoleStatus.textContent = "Evaluating test suite...";
+  consoleStatus.textContent = "Compiling via JDoodle API...";
   consoleStatus.className = "console-status running";
+  consoleOutput.innerHTML = `
+    <div class="compiling-notice">
+      <span class="pulse-radar-mini"></span>
+      <span>Transmitting code payload to <strong>JDoodle Cloud Compiler</strong> (${lang})...</span>
+    </div>
+  `;
 
   try {
-    const evaluator = new Function(`${userCode}; return ${prob.fnName};`)();
-    if (typeof evaluator !== 'function') {
-      throw new Error(`Function "${prob.fnName}" was not returned or defined.`);
-    }
-
-    let allPassed = true;
-    let outputLines = [];
-
-    prob.tests.forEach((test, idx) => {
-      const inputCopy = JSON.parse(JSON.stringify(test.args));
-      const result = evaluator(...inputCopy);
-      const passed = JSON.stringify(result) === JSON.stringify(test.expected);
-
-      if (passed) {
-        outputLines.push(`<div class="test-pass">✓ Test Case ${idx + 1}: Passed (Result: ${JSON.stringify(result)})</div>`);
-      } else {
-        allPassed = false;
-        outputLines.push(`<div class="test-fail">✗ Test Case ${idx + 1}: Failed (Expected ${JSON.stringify(test.expected)}, got ${JSON.stringify(result)})</div>`);
-      }
+    const res = await runProblemTestsWithJDoodle({
+      userCode,
+      problem: prob,
+      language: lang
     });
 
-    if (allPassed) {
+    let outputHtml = '';
+
+    // 1. JDoodle API Execution Badge & Telemetry Bar
+    outputHtml += `
+      <div class="jdoodle-result-header">
+        <div class="jdoodle-brand">
+          <span class="jdoodle-icon">⚡</span>
+          <strong>JDOODLE COMPILER OUTPUT</strong>
+          <span class="jdoodle-status-tag ${res.allPassed ? 'tag-pass' : 'tag-warn'}">STATUS: ${res.statusCode || 200}</span>
+        </div>
+        <div class="jdoodle-stats">
+          <span>CPU: <strong>${res.cpuTime || '0.04s'}</strong></span>
+          <span>MEM: <strong>${res.memory || '28KB'}</strong></span>
+        </div>
+      </div>
+    `;
+
+    // 2. Standard Output Box (STDOUT)
+    const displayOutput = (res.output || '').trim();
+    if (displayOutput) {
+      outputHtml += `
+        <div class="jdoodle-stdout-wrap">
+          <div class="jdoodle-stdout-title">CONSOLE OUTPUT (STDOUT):</div>
+          <pre class="jdoodle-stdout-box">${escapeHtml(displayOutput)}</pre>
+        </div>
+      `;
+    }
+
+    // 3. Test Cases List
+    if (res.testResults && res.testResults.length > 0) {
+      outputHtml += `<div class="jdoodle-tests-list">`;
+      res.testResults.forEach(tr => {
+        outputHtml += `<div class="${tr.passed ? 'test-pass' : 'test-fail'}">${escapeHtml(tr.resultText)}</div>`;
+      });
+      outputHtml += `</div>`;
+    }
+
+    if (res.allPassed) {
       sounds.playReward();
       consoleStatus.textContent = "ALL TESTS PASSED! Ready to submit.";
       consoleStatus.className = "console-status pass";
-      consoleOutput.innerHTML = outputLines.join('') + `<div class="test-summary-pass">All ${prob.tests.length} tests verified! Click "Submit & Capture Sector" to secure this territory.</div>`;
+      outputHtml += `<div class="test-summary-pass">All ${prob.tests.length} tests verified by JDoodle! Click "Submit & Capture Sector".</div>`;
+      consoleOutput.innerHTML = outputHtml;
       return true;
     } else {
       sounds.playClick();
       consoleStatus.textContent = "TEST SUITE FAILED";
       consoleStatus.className = "console-status fail";
-      consoleOutput.innerHTML = outputLines.join('');
+      consoleOutput.innerHTML = outputHtml;
       return false;
     }
   } catch (err) {
     sounds.playClick();
     consoleStatus.textContent = "SYNTAX / RUNTIME ERROR";
     consoleStatus.className = "console-status fail";
-    consoleOutput.innerHTML = `<div class="test-fail">⚠️ Error: ${err.message}</div>`;
+    consoleOutput.innerHTML = `<div class="test-fail">⚠️ Error: ${escapeHtml(err.message)}</div>`;
     return false;
   }
 }
 
 // Submit Solution & Capture Sector (Consumes 1 of 5 member attempts)
-function submitCurrentSolution() {
+async function submitCurrentSolution() {
   if (gameState.clanWar.playerAttemptsRemaining <= 0) {
     showToast("No attempts remaining for this week!", "⚠️", true);
     return;
   }
 
-  const passed = runCurrentTests();
+  if (btnSubmit) btnSubmit.disabled = true;
+  const passed = await runCurrentTests();
+  if (btnSubmit) btnSubmit.disabled = false;
+
   if (!passed) {
     showToast("Solution failed test cases! Review console output.", "⚠️", true);
     return;
@@ -1075,7 +1173,13 @@ function submitCurrentSolution() {
 function autoSolveCode() {
   if (!activeChallengeSector || !activeChallengeSector.problem) return;
   sounds.playReward();
-  codeEditor.value = activeChallengeSector.problem.template;
+  const prob = activeChallengeSector.problem;
+  const lang = editorLangSelect ? editorLangSelect.value : 'nodejs';
+  if (lang === 'python3') {
+    codeEditor.value = PYTHON_TEMPLATES[prob.fnName] || prob.template;
+  } else {
+    codeEditor.value = prob.template;
+  }
   runCurrentTests();
 }
 

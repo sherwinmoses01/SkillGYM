@@ -117,10 +117,14 @@
         </select>
       </div>
 
-      <!-- Expand / Collapse All -->
+      <!-- Expand / Collapse All & JDoodle Cloud Compiler -->
       <div class="view-toggles-group">
         <button class="view-toggle-btn" id="btn-expand-all" title="Expand all roadmap steps">EXPAND ALL</button>
         <button class="view-toggle-btn" id="btn-collapse-all" title="Collapse all roadmap steps">COLLAPSE ALL</button>
+        <button class="view-toggle-btn jdoodle-launch-btn" id="btn-open-jdoodle" title="Launch JDoodle Cloud Compiler Workbench">
+          <span class="jdoodle-icon">⚡</span>
+          <span>CLOUD COMPILER</span>
+        </button>
       </div>
     </div>
 
@@ -132,6 +136,68 @@
       </div>
     </main>
 
+  </div>
+
+  <!-- ==================== JDOODLE CLOUD COMPILER MODAL ==================== -->
+  <div id="jdoodle-modal-overlay" class="modal-overlay">
+    <div class="modal-dialog challenge-dialog jdoodle-scratchpad-dialog" role="dialog" aria-modal="true">
+      
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <span class="modal-badge-tag" id="scratchpad-badge">DSA WORKBENCH</span>
+          <h3 class="modal-main-title" id="scratchpad-title">JDOODLE CLOUD COMPILER</h3>
+        </div>
+        <button class="modal-close-btn" id="btn-close-jdoodle-modal" title="Close Compiler">✕</button>
+      </div>
+
+      <div class="modal-body challenge-modal-body">
+        <div class="challenge-editor-col" style="flex: 1; width: 100%;">
+          <div class="editor-top-toolbar">
+            <div class="editor-lang-group">
+              <span class="editor-lang-lbl">COMPILER:</span>
+              <select id="scratchpad-lang-select" class="editor-lang-select" title="Select target compiler language">
+                <option value="python3" selected>Python 3 (v4)</option>
+                <option value="nodejs">JavaScript (NodeJS)</option>
+              </select>
+              <span class="jdoodle-live-pill" id="scratchpad-status-pill" title="JDoodle API Cloud Compiler Connection">
+                <span class="jdoodle-dot"></span> JDOODLE API
+              </span>
+            </div>
+            <div class="scratchpad-presets-group">
+              <button class="quick-solve-btn" id="btn-scratchpad-hello" title="Load Hello World snippet">
+                ⚡ HELLO WORLD
+              </button>
+              <button class="quick-solve-btn" id="btn-scratchpad-clear" title="Clear editor">
+                🗑️ CLEAR
+              </button>
+            </div>
+          </div>
+
+          <div class="code-textarea-wrap">
+            <textarea id="scratchpad-code-input" class="code-editor-textarea" spellcheck="false" autocomplete="off" rows="12">print("Hello World")</textarea>
+          </div>
+
+          <!-- Console Output Area -->
+          <div class="test-console-box" id="scratchpad-console-box">
+            <div class="console-head">
+              <span>TERMINAL OUTPUT (STDOUT)</span>
+              <span class="console-status" id="scratchpad-console-status">Awaiting execution</span>
+            </div>
+            <div class="console-output" id="scratchpad-console-output">
+              Click "▶ COMPILE &amp; RUN" to execute code on JDoodle Cloud servers and view output.
+            </div>
+          </div>
+
+          <!-- Action Row -->
+          <div class="editor-actions-row">
+            <button class="action-test-btn" id="btn-scratchpad-run" style="flex: 1;">
+              <span>▶ COMPILE &amp; RUN (JDOODLE API)</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
   </div>
 
   <!-- Application Logic -->

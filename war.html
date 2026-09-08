@@ -288,7 +288,16 @@
           <!-- RIGHT: CODE EDITOR & TEST RUNNER -->
           <div class="challenge-editor-col">
             <div class="editor-top-toolbar">
-              <span class="editor-lang-tag">JavaScript (ES6)</span>
+              <div class="editor-lang-group">
+                <span class="editor-lang-lbl">COMPILER:</span>
+                <select id="editor-lang-select" class="editor-lang-select" title="Select target compiler language">
+                  <option value="nodejs" selected>JavaScript (NodeJS)</option>
+                  <option value="python3">Python 3 (v4)</option>
+                </select>
+                <span class="jdoodle-live-pill" id="jdoodle-status-pill" title="JDoodle API Cloud Compiler Connection">
+                  <span class="jdoodle-dot"></span> JDOODLE API
+                </span>
+              </div>
               <button class="quick-solve-btn" id="btn-quick-solve" title="Autofill optimal working solution">
                 ⚡ AUTO-SOLVE (DEMO)
               </button>
